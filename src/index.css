@@ -1,0 +1,28 @@
+@import "tailwindcss";
+
+/* Dynamic brand CSS variables — injected at runtime by MerchantProvider */
+/* Defaults are Chikang's brand colors */
+:root {
+  --brand-primary: #3B6B5E;
+  --brand-accent: #E8922D;
+  --brand-success: #7BAE7F;
+  --brand-bg: #F8F6F3;
+  --brand-text-secondary: #8E8E8E;
+}
+
+/* Map brand variables to Tailwind theme tokens */
+@theme inline {
+  --color-primary: var(--brand-primary);
+  --color-accent: var(--brand-accent);
+  --color-success: var(--brand-success);
+  --color-bg: var(--brand-bg);
+  --color-text-secondary: var(--brand-text-secondary);
+}
+
+body {
+  font-family: 'Noto Sans TC', system-ui, -apple-system, sans-serif;
+  background-color: var(--brand-bg);
+  color: #333;
+  margin: 0;
+  -webkit-font-smoothing: antialiased;
+}
