@@ -49,12 +49,20 @@ export interface VerifyIdentityResponse {
   auth_mode: string;
 }
 
-export function verifyIdentity(data: { merchant_code: string; mode: string; [key: string]: unknown }) {
-  return apiFetch<VerifyIdentityResponse>(`${API_BASE}?action=verify-identity`, {
+export function verifyIdentity(merchantCode: string, data: { mode: string; [key: string]: unknown }) {
+  return apiFetch<VerifyIdentityResponse>(`${API_BASE}?action=verify-identity&m=${merchantCode}`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify(data),
+    body: JSON.stringify({ ...data, merchant_code: merchantCode }),
   });
+}
+
+export interface BookingMerchantInfo {
+  display_name: string;
+  address: string;
+  google_map_url: string;
+  phone: string;
+  line_oa_url: string;
 }
 
 export interface CreateBookingResponse {
@@ -66,18 +74,20 @@ export interface CreateBookingResponse {
   end_time: string;
   price_per_session: number;
   total_price: number;
-  bookings: Array<{
+  booking: {
     id: string;
     service_name: string;
     resource_name: string;
     start_time: string;
     end_time: string;
+    duration_minutes?: number;
     final_price: number;
-  }>;
+  };
+  merchant?: BookingMerchantInfo;
 }
 
-export function createBooking(token: string, data: { date: string; time: string; people?: number; sessions?: number }) {
-  return apiFetch<CreateBookingResponse>(`${API_BASE}?action=create-booking`, {
+export function createBooking(token: string, merchantCode: string, data: { date: string; time: string; people?: number; sessions?: number }) {
+  return apiFetch<CreateBookingResponse>(`${API_BASE}?action=create-booking&m=${merchantCode}`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
     body: JSON.stringify(data),
@@ -111,8 +121,8 @@ export function fetchMyBookings(token: string, merchantCode: string, status: 'up
   );
 }
 
-export function cancelBooking(token: string, bookingId: string, reason?: string, cancelGroup = false) {
-  return apiFetch<{ success: boolean }>(`${API_BASE}?action=cancel-booking`, {
+export function cancelBooking(token: string, merchantCode: string, bookingId: string, reason?: string, cancelGroup = false) {
+  return apiFetch<{ success: boolean }>(`${API_BASE}?action=cancel-booking&m=${merchantCode}`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
     body: JSON.stringify({ booking_id: bookingId, reason, cancel_group: cancelGroup }),

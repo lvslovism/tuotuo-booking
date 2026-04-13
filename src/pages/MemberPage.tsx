@@ -40,8 +40,7 @@ export function MemberPage() {
     setLoggingIn(true);
     setLoginError('');
     try {
-      const result = await verifyIdentity({
-        merchant_code: merchantCode,
+      const result = await verifyIdentity(merchantCode, {
         mode: 'guest',
         name: '',
         phone: phone.trim(),
@@ -64,7 +63,7 @@ export function MemberPage() {
     if (!confirm('確定要取消此預約嗎？')) return;
     setCancellingId(bookingId);
     try {
-      await cancelBooking(token, bookingId);
+      await cancelBooking(token, merchantCode, bookingId);
       // Refresh
       const data = await fetchMyBookings(token, merchantCode, tab);
       setBookings(data.bookings || []);

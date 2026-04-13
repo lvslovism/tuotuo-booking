@@ -41,8 +41,7 @@ export function BookingPage() {
     // Step 1: Verify identity (guest mode) to get JWT
     let authToken = token;
     if (!authToken) {
-      const authResult = await verifyIdentity({
-        merchant_code: merchantCode,
+      const authResult = await verifyIdentity(merchantCode, {
         mode: 'guest',
         name: booking.guestInfo.name,
         phone: booking.guestInfo.phone,
@@ -57,13 +56,15 @@ export function BookingPage() {
     }
 
     // Step 2: Create booking
-    await createBooking(authToken!, {
+    const result = await createBooking(authToken!, merchantCode, {
       date: booking.date,
       time: booking.slot.time,
       sessions: booking.sessions,
     });
 
-    navigate(`/s/${merchantCode}/success`);
+    navigate(`/s/${merchantCode}/success`, {
+      state: { bookingResult: result },
+    });
   }, [booking, token, merchantCode, navigate, setAuth]);
 
   return (

@@ -21,8 +21,7 @@ export function CallbackPage() {
 
     const redirectUri = `${window.location.origin}/s/${merchantCode}/callback`;
 
-    verifyIdentity({
-      merchant_code: merchantCode,
+    verifyIdentity(merchantCode, {
       mode: 'line_login',
       code,
       redirect_uri: redirectUri,
