@@ -60,6 +60,9 @@ export function BookingPage() {
       date: booking.date,
       time: booking.slot.time,
       sessions: booking.sessions,
+      customer_name: booking.guestInfo?.name,
+      customer_phone: booking.guestInfo?.phone,
+      customer_gender: booking.guestInfo?.gender,
     });
 
     navigate(`/s/${merchantCode}/success`, {

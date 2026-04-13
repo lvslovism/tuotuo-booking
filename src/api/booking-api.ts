@@ -86,7 +86,7 @@ export interface CreateBookingResponse {
   merchant?: BookingMerchantInfo;
 }
 
-export function createBooking(token: string, merchantCode: string, data: { date: string; time: string; people?: number; sessions?: number }) {
+export function createBooking(token: string, merchantCode: string, data: { date: string; time: string; people?: number; sessions?: number; customer_name?: string; customer_phone?: string; customer_gender?: string }) {
   return apiFetch<CreateBookingResponse>(`${API_BASE}?action=create-booking&m=${merchantCode}`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
@@ -127,4 +127,48 @@ export function cancelBooking(token: string, merchantCode: string, bookingId: st
     headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
     body: JSON.stringify({ booking_id: bookingId, reason, cancel_group: cancelGroup }),
   });
+}
+
+// === Staff Performance ===
+
+export interface StaffScheduleItem {
+  id: string;
+  customer_name: string;
+  service_name: string;
+  start_time: string;
+  end_time: string;
+  status: string;
+  duration_minutes: number;
+}
+
+export interface StaffPerformanceData {
+  total_bookings: number;
+  completed_bookings: number;
+  no_show_bookings: number;
+  total_revenue: number;
+  commission_earned: number;
+}
+
+export interface StaffPerformanceResponse {
+  resource: { id: string; name: string; title: string | null };
+  performance: StaffPerformanceData;
+  today_schedule: StaffScheduleItem[];
+  period: string;
+  error?: string;
+}
+
+export function fetchStaffPerformance(
+  merchantCode: string,
+  lineUserId: string,
+  period: string = 'month',
+  liffAccessToken?: string
+) {
+  const headers: Record<string, string> = {};
+  if (liffAccessToken) {
+    headers['Authorization'] = `Bearer ${liffAccessToken}`;
+  }
+  return apiFetch<StaffPerformanceResponse>(
+    `${API_BASE}?action=staff-performance&m=${merchantCode}&line_user_id=${lineUserId}&period=${period}`,
+    { headers }
+  );
 }

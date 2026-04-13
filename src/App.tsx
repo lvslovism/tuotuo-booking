@@ -3,8 +3,9 @@ import { MerchantLayout } from './components/layout/MerchantLayout';
 import { BookingPage } from './pages/BookingPage';
 import { ServicesPage } from './pages/ServicesPage';
 import { MemberPage } from './pages/MemberPage';
-import { SuccessPage } from './pages/SuccessPage';
+import SuccessPage from './pages/SuccessPage';
 import { CallbackPage } from './pages/CallbackPage';
+import { StaffPage } from './pages/StaffPage';
 import { NotFoundPage } from './pages/NotFoundPage';
 
 export default function App() {
@@ -16,6 +17,7 @@ export default function App() {
         <Route path="member" element={<MemberPage />} />
         <Route path="success" element={<SuccessPage />} />
         <Route path="callback" element={<CallbackPage />} />
+        <Route path="staff" element={<StaffPage />} />
       </Route>
       <Route path="/" element={<Navigate to="/s/chikang" replace />} />
       <Route path="*" element={<NotFoundPage />} />

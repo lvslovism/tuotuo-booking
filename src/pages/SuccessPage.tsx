@@ -13,6 +13,8 @@ export default function SuccessPage() {
   const booking = result?.booking;
   const merchantInfo = result?.merchant;
 
+  console.log('bookingResult:', JSON.stringify(location.state));
+
   // 日期格式化
   const formatDate = (isoString: string) => {
     try {
@@ -62,7 +64,7 @@ export default function SuccessPage() {
             </div>
             {booking.resource_name && (
               <div className="flex justify-between">
-                <span className="text-gray-500">{merchant?.display_settings?.terminology?.provider || '服務人員'}</span>
+                <span className="text-gray-500">{(merchant as any)?.display_settings?.terminology?.provider || '服務人員'}</span>
                 <span className="font-medium">{booking.resource_name}</span>
               </div>
             )}
