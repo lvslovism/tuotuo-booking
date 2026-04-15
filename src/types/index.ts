@@ -27,6 +27,17 @@ export interface MerchantBookingRules {
   };
 }
 
+export interface GroupDiscount {
+  enabled: boolean;
+  discount_per_session: number;
+  min_people_or_sessions: number;
+  description: string;
+}
+
+export interface PricingRules {
+  group_discount?: GroupDiscount;
+}
+
 export interface Merchant {
   merchant_code: string;
   display_name: string;
@@ -36,6 +47,7 @@ export interface Merchant {
   google_map_url?: string;
   line_oa_url?: string;
   line_liff_id?: string;
+  line_login_channel_id?: string;
   timezone: string;
   business_hours: Record<string, unknown>;
   booking_rules: MerchantBookingRules;
@@ -43,6 +55,7 @@ export interface Merchant {
   terminology: MerchantTerminology;
   disclaimer: string;
   pricing_info: Record<string, unknown>;
+  pricing_rules?: PricingRules;
 }
 
 // === Service (from ?action=services) ===
@@ -125,4 +138,19 @@ export interface GuestInfo {
   name: string;
   phone: string;
   gender: 'male' | 'female' | '';
+}
+
+export interface CompanionInfo {
+  name: string;
+  gender: 'male' | 'female' | '';
+}
+
+export interface GroupBookingDetail {
+  id: string;
+  resource_name: string;
+  start_time: string;
+  end_time: string;
+  customer_name: string;
+  final_price: number;
+  group_index: number;
 }

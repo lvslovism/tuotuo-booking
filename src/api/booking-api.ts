@@ -275,3 +275,74 @@ export function fetchStaffPerformance(
     { headers }
   );
 }
+
+// === Customer Portal (Member Center) ===
+
+export interface PortalCustomer {
+  id: string;
+  name: string;
+  phone: string;
+  total_visits: number;
+  total_spent: number;
+  lifecycle_stage: string;
+  tags: string[];
+  is_new_customer: boolean;
+  member_since: string;
+}
+
+export interface PortalBooking {
+  id: string;
+  date: string;
+  start_time: string;
+  end_time: string;
+  status: string;
+  service_name: string;
+  resource_name: string;
+  total_price: number;
+}
+
+export interface PortalLoyaltyCard {
+  current_stamps: number;
+  required_stamps: number;
+  rewards_earned: number;
+  is_active: boolean;
+}
+
+export interface PortalStoredValue {
+  balance: number;
+  card_number: string;
+  expires_at: string | null;
+  status: string;
+}
+
+export interface PortalPackage {
+  name: string;
+  remaining_sessions: number;
+  total_sessions: number;
+  expires_at: string | null;
+  status: string;
+}
+
+export interface PortalVisit {
+  date: string;
+  service: string;
+  resource: string;
+  total_price: number;
+}
+
+export interface CustomerPortalResponse {
+  customer: PortalCustomer;
+  upcoming_bookings: PortalBooking[];
+  loyalty_card: PortalLoyaltyCard | null;
+  stored_value: PortalStoredValue | null;
+  packages: PortalPackage[];
+  recent_visits: PortalVisit[];
+  error?: string;
+}
+
+export function fetchCustomerPortal(token: string, merchantCode: string) {
+  return apiFetch<CustomerPortalResponse>(
+    `${API_BASE}?action=customer-portal&m=${merchantCode}`,
+    { headers: { Authorization: `Bearer ${token}` } },
+  );
+}
