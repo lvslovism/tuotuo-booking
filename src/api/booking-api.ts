@@ -22,16 +22,16 @@ export function fetchServices(merchantCode: string) {
   );
 }
 
-export function fetchCalendarStatus(merchantCode: string, month: string) {
-  return apiFetch<{ days: CalendarDay[]; month: string; sessions: number }>(
-    `${API_BASE}?action=calendar-status&m=${merchantCode}&month=${month}`
-  );
+export function fetchCalendarStatus(merchantCode: string, month: string, people = 1) {
+  let url = `${API_BASE}?action=calendar-status&m=${merchantCode}&month=${month}`;
+  if (people > 1) url += `&people=${people}`;
+  return apiFetch<{ days: CalendarDay[]; month: string; sessions: number }>(url);
 }
 
-export function fetchAvailableSlots(merchantCode: string, date: string, serviceId: string) {
-  return apiFetch<SlotsResponse>(
-    `${API_BASE}?action=available-slots&m=${merchantCode}&date=${date}&service_id=${serviceId}`
-  );
+export function fetchAvailableSlots(merchantCode: string, date: string, serviceId: string, people = 1) {
+  let url = `${API_BASE}?action=available-slots&m=${merchantCode}&date=${date}&service_id=${serviceId}`;
+  if (people > 1) url += `&people=${people}`;
+  return apiFetch<SlotsResponse>(url);
 }
 
 export interface VerifyIdentityResponse {
@@ -65,14 +65,26 @@ export interface BookingMerchantInfo {
   line_oa_url: string;
 }
 
+export interface GroupBookingItem {
+  id: string;
+  resource_name: string;
+  start_time: string;
+  end_time: string;
+  customer_name: string;
+  final_price: number;
+  group_index: number;
+}
+
 export interface CreateBookingResponse {
-  group_id: string;
+  group_id: string | null;
   people: number;
   sessions_per_person: number;
   total_sessions: number;
   start_time: string;
   end_time: string;
   price_per_session: number;
+  original_price_per_session: number;
+  discount_per_session: number;
   total_price: number;
   booking: {
     id: string;
@@ -83,10 +95,22 @@ export interface CreateBookingResponse {
     duration_minutes?: number;
     final_price: number;
   };
+  bookings?: GroupBookingItem[];
   merchant?: BookingMerchantInfo;
 }
 
-export function createBooking(token: string, merchantCode: string, data: { date: string; time: string; people?: number; sessions?: number; customer_name?: string; customer_phone?: string; customer_gender?: string }) {
+export interface CreateBookingPayload {
+  merchant_code: string;
+  people: number;
+  slots: { date: string; time: string }[];
+  customer_name?: string;
+  customer_phone?: string;
+  customer_gender?: string;
+  companion_name?: string;
+  companion_gender?: string;
+}
+
+export function createBooking(token: string, merchantCode: string, data: CreateBookingPayload) {
   return apiFetch<CreateBookingResponse>(`${API_BASE}?action=create-booking&m=${merchantCode}`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
@@ -126,6 +150,64 @@ export function cancelBooking(token: string, merchantCode: string, bookingId: st
     method: 'POST',
     headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
     body: JSON.stringify({ booking_id: bookingId, reason, cancel_group: cancelGroup }),
+  });
+}
+
+// === Booking Status (for payment result / reschedule) ===
+
+export interface BookingStatusResponse {
+  id: string;
+  service_name: string;
+  resource_name: string;
+  start_time: string;
+  end_time: string;
+  status: string;
+  payment_status: string;
+  final_price: number;
+  duration_minutes: number;
+  service_id: string;
+  customer_name: string;
+}
+
+export function fetchBookingStatus(merchantCode: string, bookingId: string) {
+  return apiFetch<BookingStatusResponse>(
+    `${API_BASE}?action=booking-status&m=${merchantCode}&booking_id=${bookingId}`
+  );
+}
+
+// === Reschedule ===
+
+export interface RescheduleResponse {
+  success: boolean;
+  new_start_time: string;
+  new_end_time: string;
+}
+
+export function rescheduleBooking(
+  token: string,
+  merchantCode: string,
+  bookingId: string,
+  newDate: string,
+  newTime: string,
+) {
+  return apiFetch<RescheduleResponse>(`${API_BASE}?action=reschedule-booking&m=${merchantCode}`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+    body: JSON.stringify({ merchant_code: merchantCode, booking_id: bookingId, new_date: newDate, new_time: newTime }),
+  });
+}
+
+// === Create Payment (retry failed payment) ===
+
+export interface CreatePaymentResponse {
+  payment_url: string;
+}
+
+export function createPayment(token: string, merchantCode: string, bookingId: string) {
+  return apiFetch<CreatePaymentResponse>(`${API_BASE}?action=create-payment&m=${merchantCode}`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+    body: JSON.stringify({ booking_id: bookingId }),
   });
 }
 
