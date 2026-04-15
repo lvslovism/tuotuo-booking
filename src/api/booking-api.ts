@@ -211,6 +211,27 @@ export function createPayment(token: string, merchantCode: string, bookingId: st
   });
 }
 
+// === Submit Review ===
+
+export interface SubmitReviewResponse {
+  success: boolean;
+  review_id: string;
+}
+
+export function submitReview(
+  token: string,
+  merchantCode: string,
+  bookingId: string,
+  rating: number,
+  comment: string,
+) {
+  return apiFetch<SubmitReviewResponse>(`${API_BASE}?action=submit-review&m=${merchantCode}`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+    body: JSON.stringify({ booking_id: bookingId, rating, comment }),
+  });
+}
+
 // === Staff Performance ===
 
 export interface StaffScheduleItem {

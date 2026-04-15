@@ -8,6 +8,7 @@ import { CallbackPage } from './pages/CallbackPage';
 import { StaffPage } from './pages/StaffPage';
 import { PaymentResultPage } from './pages/PaymentResultPage';
 import { ReschedulePage } from './pages/ReschedulePage';
+import { ReviewPage } from './pages/ReviewPage';
 import { NotFoundPage } from './pages/NotFoundPage';
 import { LandingPage } from './pages/LandingPage';
 import { VerifyEmailPage } from './pages/VerifyEmailPage';
@@ -25,6 +26,7 @@ export default function App() {
         <Route path="callback" element={<CallbackPage />} />
         <Route path="payment-result" element={<PaymentResultPage />} />
         <Route path="reschedule" element={<ReschedulePage />} />
+        <Route path="review" element={<ReviewPage />} />
         <Route path="staff" element={<StaffPage />} />
       </Route>
       <Route path="*" element={<NotFoundPage />} />
