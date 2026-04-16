@@ -22,7 +22,8 @@ export function BookingPage() {
 
   const groupBooking = merchant?.booking_rules?.group_booking;
   const groupEnabled = groupBooking?.enabled === true && (groupBooking?.max_people ?? 1) > 1;
-  const groupDiscount = merchant?.pricing_rules?.group_discount;
+  const groupDiscount = merchant?.pricing_rules?.group_discount
+    || (merchant?.pricing_info as Record<string, unknown>)?.group_discount as import('../types').GroupDiscount | undefined;
 
   const handleSelectService = useCallback((service: Service) => {
     booking.selectService(service);
