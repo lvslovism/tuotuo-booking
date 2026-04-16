@@ -6,11 +6,12 @@ import { useBooking } from '../hooks/useBooking';
 import { verifyIdentity, createBooking } from '../api/booking-api';
 import { Stepper } from '../components/booking/Stepper';
 import { ServiceSelector } from '../components/booking/ServiceSelector';
+import { PeopleSelector } from '../components/booking/PeopleSelector';
 import { Calendar } from '../components/booking/Calendar';
 import { TimeSlotGrid } from '../components/booking/TimeSlotGrid';
 import { GuestForm } from '../components/booking/GuestForm';
 import { BookingConfirm } from '../components/booking/BookingConfirm';
-import type { Service, TimeSlot, GuestInfo } from '../types';
+import type { Service, TimeSlot, GuestInfo, CompanionInfo } from '../types';
 
 export function BookingPage() {
   const { merchant, merchantCode } = useMerchant();
@@ -18,6 +19,10 @@ export function BookingPage() {
   const navigate = useNavigate();
   const booking = useBooking();
   const [selectedDate, setSelectedDate] = useState('');
+
+  const groupBooking = merchant?.booking_rules?.group_booking;
+  const groupEnabled = groupBooking?.enabled === true && (groupBooking?.max_people ?? 1) > 1;
+  const groupDiscount = merchant?.pricing_rules?.group_discount;
 
   const handleSelectService = useCallback((service: Service) => {
     booking.selectService(service);
@@ -31,9 +36,12 @@ export function BookingPage() {
     booking.selectSlot(selectedDate, slot, sessions);
   }, [booking.selectSlot, selectedDate]);
 
-  const handleGuestSubmit = useCallback((info: GuestInfo) => {
+  const handleGuestSubmit = useCallback((info: GuestInfo, companion?: CompanionInfo) => {
+    if (companion) {
+      booking.setCompanionInfo(companion);
+    }
     booking.setGuestInfo(info);
-  }, [booking.setGuestInfo]);
+  }, [booking.setGuestInfo, booking.setCompanionInfo]);
 
   const handleConfirm = useCallback(async () => {
     if (!booking.service || !booking.slot) return;
@@ -55,14 +63,17 @@ export function BookingPage() {
       }, 'guest');
     }
 
-    // Step 2: Create booking
+    // Step 2: Create booking — new format with slots array
     const result = await createBooking(authToken!, merchantCode, {
-      date: booking.date,
-      time: booking.slot.time,
-      sessions: booking.sessions,
+      merchant_code: merchantCode,
+      people: booking.people,
+      slots: [{ date: booking.date, time: booking.slot.time }],
       customer_name: booking.guestInfo?.name,
       customer_phone: booking.guestInfo?.phone,
       customer_gender: booking.guestInfo?.gender,
+      ...(booking.people >= 2 && booking.companionInfo?.name
+        ? { companion_name: booking.companionInfo.name, companion_gender: booking.companionInfo.gender || undefined }
+        : {}),
     });
 
     navigate(`/s/${merchantCode}/success`, {
@@ -89,7 +100,7 @@ export function BookingPage() {
         <ServiceSelector onSelect={handleSelectService} />
       )}
 
-      {/* Step 2: Select date + time */}
+      {/* Step 2: Select date + time (with optional people selector) */}
       {booking.step === 'datetime' && booking.service && (
         <div>
           <div className="flex items-center justify-between mb-3">
@@ -107,14 +118,28 @@ export function BookingPage() {
               {booking.service.service_minutes || booking.service.duration_minutes}分鐘 · NT${booking.service.price}
             </span>
           </div>
+
+          {/* People selector — visible when group_booking is enabled */}
+          {groupEnabled && (
+            <PeopleSelector
+              people={booking.people}
+              maxPeople={groupBooking?.max_people || booking.service.max_party_size || 2}
+              groupDiscount={groupDiscount ?? { enabled: true, discount_per_session: 0, min_people_or_sessions: 2, description: '' }}
+              terminology={{ booking: merchant?.terminology?.booking }}
+              onChange={booking.setPeople}
+            />
+          )}
+
           <Calendar
             serviceId={booking.service.id}
             selectedDate={selectedDate}
+            people={booking.people}
             onSelectDate={handleSelectDate}
           />
           <TimeSlotGrid
             serviceId={booking.service.id}
             date={selectedDate}
+            people={booking.people}
             onSelect={handleSelectSlot}
           />
         </div>
@@ -122,7 +147,11 @@ export function BookingPage() {
 
       {/* Step 3: Fill info */}
       {booking.step === 'info' && (
-        <GuestForm onSubmit={handleGuestSubmit} onBack={booking.goBack} />
+        <GuestForm
+          people={booking.people}
+          onSubmit={handleGuestSubmit}
+          onBack={booking.goBack}
+        />
       )}
 
       {/* Step 4: Confirm */}
@@ -132,7 +161,9 @@ export function BookingPage() {
           date={booking.date}
           slot={booking.slot}
           sessions={booking.sessions}
+          people={booking.people}
           guestInfo={booking.guestInfo}
+          companionInfo={booking.people >= 2 ? booking.companionInfo : undefined}
           onConfirm={handleConfirm}
           onBack={booking.goBack}
         />

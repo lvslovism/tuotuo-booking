@@ -25,6 +25,10 @@ export interface MerchantBookingRules {
     penalty_type: string;
     free_cancel_count: number;
   };
+  group_booking?: {
+    enabled: boolean;
+    max_people: number;
+  };
 }
 
 export interface GroupDiscount {
@@ -88,6 +92,7 @@ export interface TimeSlot {
   time: string;        // HH:mm
   available: boolean;
   available_resources: number;
+  recommended?: boolean;
 }
 
 export interface SlotsResponse {
@@ -98,6 +103,21 @@ export interface SlotsResponse {
   sessions: number;
   slots: TimeSlot[];
   total_resources: number;
+}
+
+// === Package (套券) ===
+
+export interface Package {
+  id: string;
+  name: string;
+  description: string | null;
+  total_sessions: number;
+  bonus_sessions: number | null;
+  original_price: number;
+  selling_price: number;
+  validity_days: number | null;
+  is_active: boolean;
+  services?: { name: string };
 }
 
 // === Booking ===
