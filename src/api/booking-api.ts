@@ -123,9 +123,11 @@ export interface CreateBookingResponse {
 }
 
 export interface CreateBookingPayload {
-  merchant_code: string;
+  date: string;        // YYYY-MM-DD
+  time: string;        // HH:MM
+  sessions: number;
   people: number;
-  slots: { date: string; time: string }[];
+  resource_id?: string | null;
   customer_name?: string;
   customer_phone?: string;
   customer_gender?: string;
