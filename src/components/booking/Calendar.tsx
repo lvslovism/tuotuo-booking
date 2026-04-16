@@ -9,12 +9,13 @@ import type { CalendarDay } from '../../types';
 interface Props {
   serviceId: string;
   selectedDate: string;
+  people?: number;
   onSelectDate: (date: string) => void;
 }
 
 const WEEKDAYS = ['日', '一', '二', '三', '四', '五', '六'];
 
-export function Calendar({ serviceId, selectedDate, onSelectDate }: Props) {
+export function Calendar({ serviceId, selectedDate, people = 1, onSelectDate }: Props) {
   const { merchantCode } = useMerchant();
   const [month, setMonth] = useState(() => toTaiwanMonth(new Date()));
   const [days, setDays] = useState<CalendarDay[]>([]);
@@ -23,11 +24,11 @@ export function Calendar({ serviceId, selectedDate, onSelectDate }: Props) {
   useEffect(() => {
     if (!merchantCode) return;
     setLoading(true);
-    fetchCalendarStatus(merchantCode, month)
+    fetchCalendarStatus(merchantCode, month, people)
       .then((data) => setDays(data.days || []))
       .catch(() => setDays([]))
       .finally(() => setLoading(false));
-  }, [merchantCode, month, serviceId]);
+  }, [merchantCode, month, serviceId, people]);
 
   const today = getTodayTaiwan();
 

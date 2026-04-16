@@ -12,6 +12,8 @@ import { ReviewPage } from './pages/ReviewPage';
 import { NotFoundPage } from './pages/NotFoundPage';
 import { LandingPage } from './pages/LandingPage';
 import { VerifyEmailPage } from './pages/VerifyEmailPage';
+import { PackagesPage } from './pages/PackagesPage';
+import { WaitlistPage } from './pages/WaitlistPage';
 
 export default function App() {
   return (
@@ -28,6 +30,8 @@ export default function App() {
         <Route path="reschedule" element={<ReschedulePage />} />
         <Route path="review" element={<ReviewPage />} />
         <Route path="staff" element={<StaffPage />} />
+        <Route path="packages" element={<PackagesPage />} />
+        <Route path="waitlist" element={<WaitlistPage />} />
       </Route>
       <Route path="*" element={<NotFoundPage />} />
     </Routes>

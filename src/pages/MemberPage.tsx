@@ -36,7 +36,7 @@ const LIFECYCLE_MAP: Record<string, { label: string; icon: string }> = {
 // ============================================================
 export function MemberPage() {
   const { merchantCode, merchant } = useMerchant();
-  const { isAuthenticated, token, mode } = useAuth();
+  const { isAuthenticated, token } = useAuth();
   const navigate = useNavigate();
 
   // Portal data

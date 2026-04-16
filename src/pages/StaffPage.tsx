@@ -48,7 +48,6 @@ export function StaffPage() {
   const [liffReady, setLiffReady] = useState(false);
   const [liffError, setLiffError] = useState('');
   const [lineUserId, setLineUserId] = useState('');
-  const [staffName, setStaffName] = useState('');
   const [avatarUrl, setAvatarUrl] = useState('');
   const [liffToken, setLiffToken] = useState('');
 
@@ -86,7 +85,6 @@ export function StaffPage() {
 
       const profile = await window.liff!.getProfile();
       setLineUserId(profile.userId);
-      setStaffName(profile.displayName);
       setAvatarUrl(profile.pictureUrl || '');
       setLiffToken(window.liff!.getAccessToken() || '');
       setLiffReady(true);

@@ -1,4 +1,4 @@
-import type { Merchant, Service, CalendarDay, SlotsResponse } from '../types';
+import type { Merchant, Service, CalendarDay, SlotsResponse, Package } from '../types';
 
 const API_BASE = import.meta.env.VITE_API_BASE;
 
@@ -32,6 +32,29 @@ export function fetchAvailableSlots(merchantCode: string, date: string, serviceI
   let url = `${API_BASE}?action=available-slots&m=${merchantCode}&date=${date}&service_id=${serviceId}`;
   if (people > 1) url += `&people=${people}`;
   return apiFetch<SlotsResponse>(url);
+}
+
+export function fetchPackages(merchantCode: string) {
+  return apiFetch<Package[]>(`${API_BASE}?action=list-packages&m=${merchantCode}`);
+}
+
+export interface WaitlistPayload {
+  merchant_code: string;
+  service_id: string;
+  preferred_dates: string[];
+  preferred_time_start: string;
+  preferred_time_end: string;
+  customer_name: string;
+  customer_phone: string;
+  preferred_resource_id?: string;
+}
+
+export function addToWaitlist(payload: WaitlistPayload) {
+  return apiFetch<{ success: boolean; waitlist_id: string }>(`${API_BASE}?action=add-to-waitlist`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(payload),
+  });
 }
 
 export interface VerifyIdentityResponse {

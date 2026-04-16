@@ -1,5 +1,6 @@
 import { useLocation, useNavigate, useParams } from 'react-router-dom';
 import { useMerchant } from '../hooks/useMerchant';
+import type { CreateBookingResponse, GroupBookingItem } from '../api/booking-api';
 
 export default function SuccessPage() {
   const { merchantCode } = useParams();
@@ -7,13 +8,13 @@ export default function SuccessPage() {
   const location = useLocation();
   const { merchant } = useMerchant();
 
-  // API 回傳結構：{ booking: {...}, merchant: {...} }
+  // API 回傳結構：{ booking: {...}, bookings?: [...], merchant: {...} }
   // BookingPage navigate 時帶 state: { bookingResult: result }
-  const result = (location.state as any)?.bookingResult;
+  const result = (location.state as { bookingResult?: CreateBookingResponse })?.bookingResult;
   const booking = result?.booking;
+  const bookings = result?.bookings;
   const merchantInfo = result?.merchant;
-
-  console.log('bookingResult:', JSON.stringify(location.state));
+  const isGroup = (result?.total_sessions ?? 1) > 1;
 
   // 日期格式化
   const formatDate = (isoString: string) => {
@@ -31,6 +32,8 @@ export default function SuccessPage() {
     }
   };
 
+  const terminology = merchant?.terminology;
+
   return (
     <div className="min-h-screen flex flex-col items-center px-4 py-12" style={{ backgroundColor: 'var(--color-bg, #F8F6F3)' }}>
       {/* 成功圖示 */}
@@ -40,18 +43,70 @@ export default function SuccessPage() {
         </svg>
       </div>
 
-      <h1 className="text-2xl font-bold mb-2">預約成功！</h1>
-      <p className="text-gray-500 mb-8">
-        {merchant?.display_name || '商家'} 已收到您的預約，請準時到場。
+      <h1 className="text-2xl font-bold mb-2">{terminology?.booking || '預約'}成功！</h1>
+      <p className="text-gray-500 mb-8 text-center">
+        {isGroup && bookings && bookings.length > 1
+          ? `您和同行者的${terminology?.booking || '預約'}已確認，請準時到場。`
+          : `${merchant?.display_name || '商家'} 已收到您的${terminology?.booking || '預約'}，請準時到場。`
+        }
       </p>
 
-      {/* 預約明細卡片 */}
-      {booking && (
+      {/* Group bookings summary */}
+      {isGroup && bookings && bookings.length > 1 ? (
         <div className="w-full max-w-md bg-white rounded-xl shadow-sm p-6 mb-4">
-          <h2 className="font-bold text-lg mb-4">預約明細</h2>
+          <h2 className="font-bold text-lg mb-4">{terminology?.booking || '預約'}明細</h2>
+          <div className="space-y-3">
+            {bookings.map((b: GroupBookingItem, idx: number) => (
+              <div key={b.id || idx} className="flex items-center justify-between text-sm py-2 border-b border-gray-50 last:border-0">
+                <div className="flex items-center gap-2">
+                  <span className="w-5 h-5 rounded-full bg-primary/10 text-primary text-xs flex items-center justify-center font-medium">
+                    {b.group_index || idx + 1}
+                  </span>
+                  <div>
+                    <p className="font-medium text-gray-800">{b.customer_name}</p>
+                    <p className="text-xs text-text-secondary">
+                      {formatDate(b.start_time)} · {b.resource_name}
+                    </p>
+                  </div>
+                </div>
+                <span className="font-medium" style={{ color: 'var(--color-accent, #E8922D)' }}>
+                  NT${b.final_price?.toLocaleString()}
+                </span>
+              </div>
+            ))}
+          </div>
+
+          {/* Total */}
+          {result && (
+            <div className="border-t pt-3 mt-3 space-y-2">
+              {result.discount_per_session > 0 && (
+                <div className="flex justify-between text-sm">
+                  <span className="text-green-600">同行優惠</span>
+                  <span className="text-green-600">
+                    -{result.total_sessions} 堂 × NT${result.discount_per_session?.toLocaleString()}
+                  </span>
+                </div>
+              )}
+              <div className="flex justify-between">
+                <span className="font-bold">應付總額</span>
+                <span className="font-bold text-lg" style={{ color: 'var(--color-accent, #E8922D)' }}>
+                  NT${result.total_price?.toLocaleString()}
+                </span>
+              </div>
+              <div className="flex justify-between text-sm">
+                <span className="text-gray-500">付款方式</span>
+                <span className="font-medium">到店付款</span>
+              </div>
+            </div>
+          )}
+        </div>
+      ) : booking ? (
+        /* Single booking — original layout */
+        <div className="w-full max-w-md bg-white rounded-xl shadow-sm p-6 mb-4">
+          <h2 className="font-bold text-lg mb-4">{terminology?.booking || '預約'}明細</h2>
           <div className="space-y-3 text-sm">
             <div className="flex justify-between">
-              <span className="text-gray-500">服務</span>
+              <span className="text-gray-500">{terminology?.service || '服務'}</span>
               <span className="font-medium">{booking.service_name}</span>
             </div>
             <div className="flex justify-between">
@@ -64,7 +119,7 @@ export default function SuccessPage() {
             </div>
             {booking.resource_name && (
               <div className="flex justify-between">
-                <span className="text-gray-500">{(merchant as any)?.display_settings?.terminology?.provider || '服務人員'}</span>
+                <span className="text-gray-500">{terminology?.provider || '服務人員'}</span>
                 <span className="font-medium">{booking.resource_name}</span>
               </div>
             )}
@@ -80,7 +135,7 @@ export default function SuccessPage() {
             </div>
           </div>
         </div>
-      )}
+      ) : null}
 
       {/* 商家資訊卡片 */}
       {merchantInfo && (
@@ -96,19 +151,19 @@ export default function SuccessPage() {
             {merchantInfo.google_map_url && (
               <a href={merchantInfo.google_map_url} target="_blank" rel="noopener noreferrer"
                 className="flex items-center gap-2 text-red-500 hover:underline">
-                📍 在 Google Maps 開啟導航
+                在 Google Maps 開啟導航
               </a>
             )}
             {merchantInfo.phone && (
               <a href={`tel:${merchantInfo.phone.replace(/-/g, '')}`}
                 className="flex items-center gap-2 text-green-700 hover:underline">
-                📞 {merchantInfo.phone}
+                {merchantInfo.phone}
               </a>
             )}
             {merchantInfo.line_oa_url && (
               <a href={merchantInfo.line_oa_url} target="_blank" rel="noopener noreferrer"
                 className="flex items-center gap-2 text-green-500 hover:underline">
-                💬 加入 LINE 官方帳號
+                加入 LINE 官方帳號
               </a>
             )}
           </div>
@@ -122,7 +177,7 @@ export default function SuccessPage() {
           className="w-full py-3 rounded-full text-white font-medium"
           style={{ backgroundColor: 'var(--color-primary, #3B6B5E)' }}
         >
-          查看我的預約
+          查看我的{terminology?.booking || '預約'}
         </button>
         <button
           onClick={() => navigate(`/s/${merchantCode}`)}
