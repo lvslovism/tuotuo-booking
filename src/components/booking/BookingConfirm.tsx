@@ -53,7 +53,7 @@ export function BookingConfirm({
           <Row label={terminology?.service || '服務'} value={service.name} />
           <Row label="日期" value={formatDateDisplay(date)} />
           <Row label="時間" value={slot.time} />
-          <Row label="時長" value={`${service.service_minutes || service.duration_minutes} 分鐘`} />
+          <Row label="時長" value={`${service.duration_minutes} 分鐘`} />
           {people > 1 && <Row label="人數" value={`${people} 人`} />}
           {sessions > 1 && <Row label="堂數" value={`${sessions} 堂`} />}
           <Row label="姓名" value={guestInfo.name} />

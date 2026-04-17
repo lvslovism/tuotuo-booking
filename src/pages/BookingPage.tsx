@@ -118,7 +118,7 @@ export function BookingPage() {
           <div className="bg-primary/5 rounded-lg px-3 py-2 mb-3 text-sm">
             <span className="font-medium text-primary">{booking.service.name}</span>
             <span className="text-text-secondary ml-2">
-              {booking.service.service_minutes || booking.service.duration_minutes}分鐘 · NT${booking.service.price}
+              {booking.service.duration_minutes}分鐘 · NT${booking.service.price}
             </span>
           </div>
 
