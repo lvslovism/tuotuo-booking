@@ -66,6 +66,7 @@ export function BookingPage() {
 
     // Step 2: Create booking — new format with slots array
     const result = await createBooking(authToken!, merchantCode, {
+      service_id: booking.service.id,
       date: booking.date,
       time: booking.slot.time,
       sessions: booking.sessions,

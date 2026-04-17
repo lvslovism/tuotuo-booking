@@ -22,8 +22,8 @@ export function fetchServices(merchantCode: string) {
   );
 }
 
-export function fetchCalendarStatus(merchantCode: string, month: string, people = 1) {
-  let url = `${API_BASE}?action=calendar-status&m=${merchantCode}&month=${month}`;
+export function fetchCalendarStatus(merchantCode: string, month: string, serviceId: string, people = 1) {
+  let url = `${API_BASE}?action=calendar-status&m=${merchantCode}&month=${month}&service_id=${serviceId}`;
   if (people > 1) url += `&people=${people}`;
   return apiFetch<{ days: CalendarDay[]; month: string; sessions: number }>(url);
 }
@@ -123,6 +123,7 @@ export interface CreateBookingResponse {
 }
 
 export interface CreateBookingPayload {
+  service_id: string;
   date: string;        // YYYY-MM-DD
   time: string;        // HH:MM
   sessions: number;

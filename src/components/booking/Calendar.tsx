@@ -24,7 +24,7 @@ export function Calendar({ serviceId, selectedDate, people = 1, onSelectDate }: 
   useEffect(() => {
     if (!merchantCode) return;
     setLoading(true);
-    fetchCalendarStatus(merchantCode, month, people)
+    fetchCalendarStatus(merchantCode, month, serviceId, people)
       .then((data) => setDays(data.days || []))
       .catch(() => setDays([]))
       .finally(() => setLoading(false));
