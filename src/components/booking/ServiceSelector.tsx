@@ -55,7 +55,7 @@ export function ServiceSelector({ onSelect }: Props) {
               {s.description && (
                 <p className="text-sm text-text-secondary line-clamp-2">{s.description}</p>
               )}
-              <p className="text-xs text-text-secondary">{s.service_minutes || s.duration_minutes} 分鐘</p>
+              <p className="text-xs text-text-secondary">{s.duration_minutes} 分鐘</p>
             </div>
             <span className="text-accent font-bold whitespace-nowrap ml-3">
               NT${s.price}
