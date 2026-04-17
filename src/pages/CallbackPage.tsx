@@ -1,9 +1,10 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { useMerchant } from '../hooks/useMerchant';
 import { useAuth } from '../hooks/useAuth';
-import { verifyIdentity } from '../api/booking-api';
 import { Loading } from '../components/ui/Loading';
+
+const API_BASE = import.meta.env.VITE_API_BASE;
 
 export function CallbackPage() {
   const { merchantCode } = useMerchant();
@@ -11,6 +12,7 @@ export function CallbackPage() {
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
   const [error, setError] = useState('');
+  const calledRef = useRef(false);
 
   useEffect(() => {
     const code = searchParams.get('code');
@@ -19,24 +21,42 @@ export function CallbackPage() {
       return;
     }
 
+    if (calledRef.current) return;
+    calledRef.current = true;
+
     const redirectUri = `${window.location.origin}/s/${merchantCode}/callback`;
 
-    verifyIdentity(merchantCode, {
-      mode: 'line_login',
-      code,
-      redirect_uri: redirectUri,
-    })
-      .then((result) => {
+    (async () => {
+      try {
+        const resp = await fetch(`${API_BASE}?action=verify-identity&m=${merchantCode}`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            mode: 'line_login',
+            code,
+            redirect_uri: redirectUri,
+            merchant_code: merchantCode,
+          }),
+        });
+        const text = await resp.text();
+        console.error('verify-identity response:', resp.status, text);
+
+        if (!resp.ok) {
+          setError('LINE 登入失敗，請重試');
+          return;
+        }
+        const result = JSON.parse(text);
         setAuth(result.session_token, {
           id: result.customer.id,
           name: result.customer.name,
           phone: result.customer.phone,
         }, 'line_login');
         navigate(`/s/${merchantCode}/member`, { replace: true });
-      })
-      .catch(() => {
+      } catch (e) {
+        console.error('verify-identity exception:', e);
         setError('LINE 登入失敗，請重試');
-      });
+      }
+    })();
   }, [merchantCode, searchParams, setAuth, navigate]);
 
   if (error) {
