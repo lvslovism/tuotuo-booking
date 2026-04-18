@@ -1,6 +1,5 @@
 import { useState } from 'react';
 import { Button } from '../ui/Button';
-import { cn } from '../../utils/cn';
 import type { GuestInfo, CompanionInfo } from '../../types';
 
 interface Props {
@@ -42,121 +41,105 @@ export function GuestForm({ people = 1, onSubmit, onBack }: Props) {
   };
 
   return (
-    <form onSubmit={handleSubmit} className="bg-white rounded-xl shadow-sm p-5 space-y-4">
-      <h2 className="text-lg font-bold text-gray-800">填寫預約資料</h2>
+    <form onSubmit={handleSubmit} className="theme-card p-5 space-y-4 theme-enter">
+      <h2 className="theme-title text-lg">填寫預約資料</h2>
 
-      {/* Name */}
-      <div>
-        <label className="block text-sm font-medium text-gray-700 mb-1">姓名</label>
+      <Field label="姓名" error={errors.name}>
         <input
           type="text"
           value={name}
           onChange={(e) => setName(e.target.value)}
           placeholder="請輸入您的姓名"
-          className={cn(
-            'w-full px-4 py-2.5 rounded-lg border text-sm outline-none transition-colors',
-            errors.name ? 'border-red-400 focus:border-red-500' : 'border-gray-200 focus:border-primary',
-          )}
+          className="theme-input"
+          style={errors.name ? { borderColor: '#E57373' } : undefined}
         />
-        {errors.name && <p className="text-xs text-red-500 mt-1">{errors.name}</p>}
-      </div>
+      </Field>
 
-      {/* Phone */}
-      <div>
-        <label className="block text-sm font-medium text-gray-700 mb-1">手機號碼</label>
+      <Field label="手機號碼" error={errors.phone}>
         <input
           type="tel"
           value={phone}
           onChange={(e) => setPhone(e.target.value)}
           placeholder="0912345678"
           maxLength={10}
-          className={cn(
-            'w-full px-4 py-2.5 rounded-lg border text-sm outline-none transition-colors',
-            errors.phone ? 'border-red-400 focus:border-red-500' : 'border-gray-200 focus:border-primary',
-          )}
+          className="theme-input"
+          style={errors.phone ? { borderColor: '#E57373' } : undefined}
         />
-        {errors.phone && <p className="text-xs text-red-500 mt-1">{errors.phone}</p>}
-      </div>
+      </Field>
 
-      {/* Gender */}
-      <div>
-        <label className="block text-sm font-medium text-gray-700 mb-1">性別</label>
+      <Field label="性別" error={errors.gender}>
         <div className="flex gap-3">
           {[
             { value: 'male' as const, label: '男' },
             { value: 'female' as const, label: '女' },
-          ].map((opt) => (
-            <button
-              key={opt.value}
-              type="button"
-              onClick={() => setGender(opt.value)}
-              className={cn(
-                'flex-1 py-2.5 rounded-lg border text-sm font-medium transition-all',
-                gender === opt.value
-                  ? 'border-primary bg-primary/10 text-primary'
-                  : 'border-gray-200 text-gray-500 hover:border-gray-300',
-              )}
-            >
-              {opt.label}
-            </button>
-          ))}
+          ].map((opt) => {
+            const active = gender === opt.value;
+            return (
+              <button
+                key={opt.value}
+                type="button"
+                onClick={() => setGender(opt.value)}
+                className="flex-1 py-2.5 text-sm font-medium transition-all"
+                style={{
+                  borderRadius: 'var(--t-btn-radius)',
+                  border: `1px solid ${active ? 'var(--t-primary)' : 'var(--t-line)'}`,
+                  background: active ? 'var(--t-primary-soft)' : 'transparent',
+                  color: active ? 'var(--t-primary)' : 'var(--t-sub)',
+                }}
+              >
+                {opt.label}
+              </button>
+            );
+          })}
         </div>
-        {errors.gender && <p className="text-xs text-red-500 mt-1">{errors.gender}</p>}
-      </div>
+      </Field>
 
-      {/* Companion fields — only when people >= 2 */}
       {showCompanion && (
         <>
-          <div className="border-t border-gray-100 pt-4">
-            <h3 className="text-base font-bold text-gray-800 mb-3">同行者資料</h3>
+          <div className="pt-2" style={{ borderTop: '1px solid var(--t-line)' }}>
+            <h3 className="theme-title text-base mt-4 mb-3">同行者資料</h3>
           </div>
 
-          {/* Companion name */}
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">
-              同行者姓名 <span className="text-red-400">*</span>
-            </label>
+          <Field label="同行者姓名" required error={errors.companionName}>
             <input
               type="text"
               value={companionName}
               onChange={(e) => setCompanionName(e.target.value)}
               placeholder="請輸入同行者姓名"
-              className={cn(
-                'w-full px-4 py-2.5 rounded-lg border text-sm outline-none transition-colors',
-                errors.companionName ? 'border-red-400 focus:border-red-500' : 'border-gray-200 focus:border-primary',
-              )}
+              className="theme-input"
+              style={errors.companionName ? { borderColor: '#E57373' } : undefined}
             />
-            {errors.companionName && <p className="text-xs text-red-500 mt-1">{errors.companionName}</p>}
-          </div>
+          </Field>
 
-          {/* Companion gender (optional) */}
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">同行者性別（選填）</label>
+          <Field label="同行者性別（選填）">
             <div className="flex gap-3">
               {[
                 { value: 'male' as const, label: '男' },
                 { value: 'female' as const, label: '女' },
-              ].map((opt) => (
-                <button
-                  key={opt.value}
-                  type="button"
-                  onClick={() => setCompanionGender(companionGender === opt.value ? '' : opt.value)}
-                  className={cn(
-                    'flex-1 py-2.5 rounded-lg border text-sm font-medium transition-all',
-                    companionGender === opt.value
-                      ? 'border-primary bg-primary/10 text-primary'
-                      : 'border-gray-200 text-gray-500 hover:border-gray-300',
-                  )}
-                >
-                  {opt.label}
-                </button>
-              ))}
+              ].map((opt) => {
+                const active = companionGender === opt.value;
+                return (
+                  <button
+                    key={opt.value}
+                    type="button"
+                    onClick={() => setCompanionGender(active ? '' : opt.value)}
+                    className="flex-1 py-2.5 text-sm font-medium transition-all"
+                    style={{
+                      borderRadius: 'var(--t-btn-radius)',
+                      border: `1px solid ${active ? 'var(--t-primary)' : 'var(--t-line)'}`,
+                      background: active ? 'var(--t-primary-soft)' : 'transparent',
+                      color: active ? 'var(--t-primary)' : 'var(--t-sub)',
+                    }}
+                  >
+                    {opt.label}
+                  </button>
+                );
+              })}
             </div>
-          </div>
+          </Field>
         </>
       )}
 
-      {/* Actions */}
       <div className="flex gap-3 pt-2">
         <Button type="button" variant="outline" size="md" onClick={onBack} className="flex-1">
           上一步
@@ -166,5 +149,28 @@ export function GuestForm({ people = 1, onSubmit, onBack }: Props) {
         </Button>
       </div>
     </form>
+  );
+}
+
+function Field({
+  label,
+  required,
+  error,
+  children,
+}: {
+  label: string;
+  required?: boolean;
+  error?: string;
+  children: React.ReactNode;
+}) {
+  return (
+    <div>
+      <label className="block text-sm font-medium mb-1" style={{ color: 'var(--t-text)' }}>
+        {label}
+        {required && <span style={{ color: '#E57373' }}> *</span>}
+      </label>
+      {children}
+      {error && <p className="text-xs mt-1" style={{ color: '#E57373' }}>{error}</p>}
+    </div>
   );
 }

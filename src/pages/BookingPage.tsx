@@ -88,12 +88,16 @@ export function BookingPage() {
     <div className="space-y-4">
       {/* Header */}
       <div className="text-center space-y-1">
-        <h1 className="text-xl font-bold text-primary">
+        <h1
+          className="theme-title"
+          style={{ fontSize: '1.35rem', color: 'var(--t-primary)' }}
+        >
           {merchant?.display_name}
         </h1>
-        <p className="text-sm text-text-secondary">
+        <p className="text-sm" style={{ color: 'var(--t-sub)' }}>
           線上{merchant?.terminology?.booking || '預約'}
         </p>
+        <div className="theme-gold-divider" />
       </div>
 
       <Stepper current={booking.step} />
@@ -107,17 +111,23 @@ export function BookingPage() {
       {booking.step === 'datetime' && booking.service && (
         <div>
           <div className="flex items-center justify-between mb-3">
-            <h2 className="text-lg font-bold text-gray-800">選擇日期與時段</h2>
+            <h2 className="theme-title text-lg">選擇日期與時段</h2>
             <button
               onClick={booking.goBack}
-              className="text-sm text-primary hover:underline"
+              className="text-sm hover:underline"
+              style={{ color: 'var(--t-primary)' }}
             >
               ← 換{merchant?.terminology?.service || '服務'}
             </button>
           </div>
-          <div className="bg-primary/5 rounded-lg px-3 py-2 mb-3 text-sm">
-            <span className="font-medium text-primary">{booking.service.name}</span>
-            <span className="text-text-secondary ml-2">
+          <div
+            className="rounded-lg px-3 py-2 mb-3 text-sm"
+            style={{ background: 'var(--t-primary-soft)' }}
+          >
+            <span className="font-medium" style={{ color: 'var(--t-primary)' }}>
+              {booking.service.name}
+            </span>
+            <span className="ml-2" style={{ color: 'var(--t-sub)' }}>
               {booking.service.duration_minutes}分鐘 · NT${booking.service.price}
             </span>
           </div>

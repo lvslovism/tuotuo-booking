@@ -6,19 +6,22 @@ interface ButtonProps extends React.ButtonHTMLAttributes<HTMLButtonElement> {
 }
 
 export function Button({ variant = 'accent', size = 'md', className, children, ...props }: ButtonProps) {
+  // "accent" and "primary" both map to the theme CTA — theme tokens decide color/shape.
+  const useCta = variant === 'accent' || variant === 'primary';
+
   return (
     <button
       className={cn(
-        'rounded-full font-medium transition-all duration-200 active:scale-[0.97] disabled:opacity-50 disabled:pointer-events-none',
-        variant === 'accent' && 'bg-accent text-white hover:brightness-110',
-        variant === 'primary' && 'bg-primary text-white hover:brightness-110',
-        variant === 'outline' && 'border border-primary text-primary hover:bg-primary/5',
-        variant === 'ghost' && 'text-primary hover:bg-primary/5',
-        size === 'sm' && 'px-4 py-1.5 text-sm',
-        size === 'md' && 'px-6 py-2.5 text-base',
-        size === 'lg' && 'px-8 py-3 text-lg w-full',
+        'font-medium transition-all duration-200 active:scale-[0.97] disabled:opacity-50 disabled:pointer-events-none inline-flex items-center justify-center gap-2',
+        useCta && 'theme-cta',
+        variant === 'outline' && 'theme-btn-outline',
+        variant === 'ghost' && 'bg-transparent',
+        size === 'sm' && 'text-sm px-4 py-1.5',
+        size === 'md' && 'text-base px-5 py-2.5',
+        size === 'lg' && 'text-base px-6 py-3.5 w-full',
         className,
       )}
+      style={variant === 'ghost' ? { color: 'var(--t-primary)' } : undefined}
       {...props}
     >
       {children}

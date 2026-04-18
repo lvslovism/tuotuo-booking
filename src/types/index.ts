@@ -42,6 +42,8 @@ export interface PricingRules {
   group_discount?: GroupDiscount;
 }
 
+export type ThemeTemplate = 'zen' | 'warm';
+
 export interface Merchant {
   merchant_code: string;
   display_name: string;
@@ -56,6 +58,7 @@ export interface Merchant {
   business_hours: Record<string, unknown>;
   booking_rules: MerchantBookingRules;
   theme: MerchantTheme;
+  theme_template?: ThemeTemplate;
   terminology: MerchantTerminology;
   disclaimer: string;
   pricing_info: Record<string, unknown>;

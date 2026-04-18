@@ -1,16 +1,52 @@
 @import "tailwindcss";
 
-/* Dynamic brand CSS variables — injected at runtime by MerchantProvider */
-/* Defaults are Chikang's brand colors */
+/* =============================================================
+   Default tokens (zen baseline — overridden at runtime by
+   applyThemeToDocument in src/themes/index.ts)
+   ============================================================= */
 :root {
+  /* Legacy brand vars (kept for existing Tailwind class references) */
   --brand-primary: #3B6B5E;
-  --brand-accent: #E8922D;
-  --brand-success: #7BAE7F;
-  --brand-bg: #F8F6F3;
-  --brand-text-secondary: #8E8E8E;
+  --brand-accent: #C4A265;
+  --brand-success: #3B6B5E;
+  --brand-bg: #F6F4F0;
+  --brand-text-secondary: #7A7770;
+
+  /* Theme tokens (zen defaults) */
+  --t-bg: #F6F4F0;
+  --t-bg-soft: #EFECE7;
+  --t-card: #FDFCFA;
+  --t-primary: #3B6B5E;
+  --t-primary-soft: #3B6B5E18;
+  --t-accent: #C4A265;
+  --t-gold: #C4A265;
+  --t-text: #2C2C2C;
+  --t-sub: #7A7770;
+  --t-muted: #B0ADA6;
+  --t-line: #E5E2DC;
+  --t-success: #3B6B5E;
+  --t-cta: #3B6B5E;
+  --t-cta-text: #FFFFFF;
+  --t-cta-shadow: 0 4px 16px rgba(59,107,94,0.20);
+
+  --t-font-title: "Noto Serif TC", Georgia, serif;
+  --t-font-body: "Noto Sans TC", -apple-system, sans-serif;
+  --t-fw-title: 400;
+  --t-fw-body: 300;
+
+  --t-card-border: 1px solid #E5E2DC;
+  --t-card-shadow: none;
+  --t-card-radius: 16px;
+  --t-btn-radius: 12px;
+  --t-btn-letter-spacing: 2px;
+
+  --t-anim-duration: 0.5s;
+  --t-anim-easing: cubic-bezier(0.22,1,0.36,1);
+
+  --t-header-bg: transparent;
 }
 
-/* Map brand variables to Tailwind theme tokens */
+/* Map to Tailwind theme tokens */
 @theme inline {
   --color-primary: var(--brand-primary);
   --color-accent: var(--brand-accent);
@@ -19,10 +55,233 @@
   --color-text-secondary: var(--brand-text-secondary);
 }
 
-body {
-  font-family: 'Noto Sans TC', system-ui, -apple-system, sans-serif;
-  background-color: var(--brand-bg);
-  color: #333;
+/* =============================================================
+   APP-like shell (lock body, only #root scrolls)
+   ============================================================= */
+html, body {
+  overscroll-behavior: none;
+  position: fixed;
+  width: 100%;
+  height: 100%;
+  overflow: hidden;
   margin: 0;
+}
+
+body {
+  font-family: var(--t-font-body);
+  font-weight: var(--t-fw-body);
+  background-color: var(--t-bg);
+  color: var(--t-text);
   -webkit-font-smoothing: antialiased;
 }
+
+#root {
+  width: 100%;
+  height: 100%;
+  overflow-y: auto;
+  overflow-x: hidden;
+  -webkit-overflow-scrolling: touch;
+}
+
+/* =============================================================
+   Theme-aware utility classes
+   ============================================================= */
+
+/* Titles use the theme title font */
+.theme-title {
+  font-family: var(--t-font-title);
+  font-weight: var(--t-fw-title);
+  color: var(--t-text);
+  letter-spacing: 0.02em;
+}
+
+.theme-sub {
+  color: var(--t-sub);
+}
+
+.theme-muted {
+  color: var(--t-muted);
+}
+
+/* Small label ("上午 / 下午" etc). zen: uppercase spaced; warm: plain */
+.theme-label {
+  font-size: 0.72rem;
+  color: var(--t-sub);
+}
+[data-theme="zen"] .theme-label {
+  text-transform: uppercase;
+  letter-spacing: 2px;
+}
+
+/* Generic card surface */
+.theme-card {
+  background: var(--t-card);
+  border: var(--t-card-border);
+  box-shadow: var(--t-card-shadow);
+  border-radius: var(--t-card-radius);
+  position: relative;
+}
+
+/* Service card with optional top accent line (zen only) */
+.theme-service-card {
+  background: var(--t-card);
+  border: var(--t-card-border);
+  box-shadow: var(--t-card-shadow);
+  border-radius: var(--t-card-radius);
+  padding: 1.25rem;
+  position: relative;
+  text-align: left;
+  width: 100%;
+  transition: transform 0.2s var(--t-anim-easing), border-color 0.2s;
+}
+.theme-service-card:active {
+  transform: scale(0.99);
+}
+[data-theme="zen"] .theme-service-card::before {
+  content: "";
+  position: absolute;
+  top: 0; left: 50%;
+  transform: translateX(-50%);
+  width: 48px;
+  height: 3px;
+  background: var(--t-primary);
+  border-radius: 0 0 3px 3px;
+}
+[data-theme="zen"] .theme-service-card:hover {
+  border-color: color-mix(in srgb, var(--t-primary) 40%, transparent);
+}
+[data-theme="warm"] .theme-service-card:hover {
+  box-shadow: 0 6px 24px rgba(60,50,30,0.10);
+}
+
+/* Gold divider under a title (zen only) */
+.theme-gold-divider {
+  height: 1px;
+  width: 40px;
+  background: var(--t-gold);
+  opacity: 0.5;
+  margin: 0.5rem auto 0;
+}
+[data-theme="warm"] .theme-gold-divider {
+  display: none;
+}
+
+/* Primary CTA */
+.theme-cta {
+  background: var(--t-cta);
+  color: var(--t-cta-text);
+  border-radius: var(--t-btn-radius);
+  letter-spacing: var(--t-btn-letter-spacing);
+  box-shadow: var(--t-cta-shadow);
+  font-weight: 500;
+  padding: 0.875rem 1.25rem;
+  transition: transform 0.15s var(--t-anim-easing), opacity 0.15s, box-shadow 0.2s;
+  border: 0;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem;
+}
+.theme-cta:active:not(:disabled) {
+  transform: scale(0.97);
+  opacity: 0.92;
+}
+.theme-cta:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+[data-theme="warm"] .theme-cta {
+  font-weight: 600;
+}
+
+/* Outline / secondary button */
+.theme-btn-outline {
+  background: transparent;
+  color: var(--t-primary);
+  border: 1px solid var(--t-primary);
+  border-radius: var(--t-btn-radius);
+  letter-spacing: var(--t-btn-letter-spacing);
+  font-weight: 500;
+  padding: 0.875rem 1.25rem;
+  transition: background 0.15s, transform 0.15s;
+  cursor: pointer;
+}
+.theme-btn-outline:hover {
+  background: var(--t-primary-soft);
+}
+.theme-btn-outline:active {
+  transform: scale(0.97);
+}
+.theme-btn-outline:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+/* Price amount */
+.theme-price {
+  font-family: var(--t-font-title);
+  font-weight: var(--t-fw-title);
+  color: var(--t-accent);
+}
+[data-theme="warm"] .theme-price {
+  font-weight: 700;
+  letter-spacing: -0.01em;
+}
+
+/* Input */
+.theme-input {
+  width: 100%;
+  padding: 0.7rem 1rem;
+  border: 1px solid var(--t-line);
+  background: var(--t-card);
+  border-radius: var(--t-btn-radius);
+  color: var(--t-text);
+  font-size: 0.9rem;
+  transition: border-color 0.15s;
+  outline: none;
+}
+.theme-input:focus {
+  border-color: var(--t-primary);
+}
+.theme-input::placeholder {
+  color: var(--t-muted);
+}
+
+/* Disclaimer box (zen: centred light; warm: left-bordered warm card) */
+.theme-disclaimer {
+  font-size: 0.78rem;
+  color: var(--t-sub);
+  line-height: 1.6;
+}
+[data-theme="zen"] .theme-disclaimer {
+  text-align: center;
+  padding: 1rem;
+  background: transparent;
+}
+[data-theme="warm"] .theme-disclaimer {
+  padding: 0.875rem 1rem;
+  background: #FFF8EF;
+  border-left: 3px solid var(--t-accent);
+  border-radius: 8px;
+}
+
+/* =============================================================
+   Animations
+   ============================================================= */
+@keyframes breatheIn {
+  from { opacity: 0; transform: translateY(8px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+@keyframes popIn {
+  from { opacity: 0; transform: scale(0.94) translateY(6px); }
+  to   { opacity: 1; transform: scale(1) translateY(0); }
+}
+
+.theme-enter {
+  animation-duration: var(--t-anim-duration);
+  animation-timing-function: var(--t-anim-easing);
+  animation-fill-mode: both;
+}
+[data-theme="zen"] .theme-enter { animation-name: breatheIn; }
+[data-theme="warm"] .theme-enter { animation-name: popIn; }

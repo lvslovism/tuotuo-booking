@@ -38,18 +38,18 @@ export function BookingConfirm({
     setError('');
     try {
       await onConfirm();
-    } catch (e: any) {
-      setError(e.message || '預約失敗，請稍後再試');
+    } catch (e: unknown) {
+      setError((e as Error).message || '預約失敗，請稍後再試');
       setSubmitting(false);
     }
   };
 
   return (
-    <div className="space-y-4">
-      <div className="bg-white rounded-xl shadow-sm p-5 space-y-3">
-        <h2 className="text-lg font-bold text-gray-800">確認{terminology?.booking || '預約'}資訊</h2>
+    <div className="space-y-4 theme-enter">
+      <div className="theme-card p-5 space-y-3">
+        <h2 className="theme-title text-lg">確認{terminology?.booking || '預約'}資訊</h2>
 
-        <div className="divide-y divide-gray-100">
+        <div className="divide-y" style={{ borderColor: 'var(--t-line)' }}>
           <Row label={terminology?.service || '服務'} value={service.name} />
           <Row label="日期" value={formatDateDisplay(date)} />
           <Row label="時間" value={slot.time} />
@@ -67,55 +67,56 @@ export function BookingConfirm({
           )}
         </div>
 
-        {/* Price breakdown */}
-        <div className="pt-3 border-t border-gray-100 space-y-2">
+        <div className="pt-3 space-y-2" style={{ borderTop: '1px solid var(--t-line)' }}>
           {isGroup && discountPerSession > 0 ? (
             <>
               <div className="flex justify-between text-sm">
-                <span className="text-text-secondary">標準價</span>
-                <span className="text-gray-600">
+                <span style={{ color: 'var(--t-sub)' }}>標準價</span>
+                <span style={{ color: 'var(--t-text)' }}>
                   {totalSessions} 堂 × NT${service.price.toLocaleString()} = NT${totalOriginal.toLocaleString()}
                 </span>
               </div>
               <div className="flex justify-between text-sm">
-                <span className="text-text-secondary">同行優惠</span>
-                <span className="text-green-600">
+                <span style={{ color: 'var(--t-sub)' }}>同行優惠</span>
+                <span style={{ color: 'var(--t-success)' }}>
                   {totalSessions} 堂 × -NT${discountPerSession.toLocaleString()} = -NT${totalDiscount.toLocaleString()}
                 </span>
               </div>
-              <div className="border-t border-dashed border-gray-200 pt-2 flex justify-between items-center">
-                <span className="font-medium text-gray-700">應付總額</span>
-                <span className="text-xl font-bold text-accent">NT${totalPrice.toLocaleString()}</span>
+              <div className="pt-2 flex justify-between items-center" style={{ borderTop: '1px dashed var(--t-line)' }}>
+                <span className="font-medium" style={{ color: 'var(--t-text)' }}>應付總額</span>
+                <span className="theme-price" style={{ fontSize: '1.4rem' }}>
+                  NT${totalPrice.toLocaleString()}
+                </span>
               </div>
               <div className="flex justify-between text-sm">
-                <span className="text-text-secondary">付款方式</span>
-                <span className="text-gray-600">到店付款</span>
+                <span style={{ color: 'var(--t-sub)' }}>付款方式</span>
+                <span style={{ color: 'var(--t-text)' }}>到店付款</span>
               </div>
             </>
           ) : (
             <div className="flex justify-between items-center">
-              <span className="font-medium text-gray-700">費用</span>
-              <span className="text-xl font-bold text-accent">NT${totalPrice.toLocaleString()}</span>
+              <span className="font-medium" style={{ color: 'var(--t-text)' }}>費用</span>
+              <span className="theme-price" style={{ fontSize: '1.4rem' }}>
+                NT${totalPrice.toLocaleString()}
+              </span>
             </div>
           )}
         </div>
       </div>
 
-      {/* Disclaimer */}
       {merchant?.disclaimer && (
-        <div className="bg-amber-50 rounded-xl p-4 text-xs text-amber-800 leading-relaxed">
-          <p className="font-medium mb-1">注意事項</p>
+        <div className="theme-disclaimer">
+          <p className="font-medium mb-1" style={{ color: 'var(--t-text)' }}>注意事項</p>
           {merchant.disclaimer}
         </div>
       )}
 
       {error && (
-        <div className="bg-red-50 rounded-xl p-3 text-sm text-red-600 text-center">
+        <div className="rounded-xl p-3 text-sm text-center" style={{ background: '#FDEAEA', color: '#B03A3A' }}>
           {error}
         </div>
       )}
 
-      {/* Actions */}
       <div className="flex gap-3">
         <Button variant="outline" size="lg" onClick={onBack} disabled={submitting} className="flex-1">
           上一步
@@ -131,8 +132,8 @@ export function BookingConfirm({
 function Row({ label, value }: { label: string; value: string }) {
   return (
     <div className="flex justify-between py-2.5 text-sm">
-      <span className="text-text-secondary">{label}</span>
-      <span className="text-gray-800 font-medium">{value}</span>
+      <span style={{ color: 'var(--t-sub)' }}>{label}</span>
+      <span className="font-medium" style={{ color: 'var(--t-text)' }}>{value}</span>
     </div>
   );
 }
