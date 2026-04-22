@@ -12,12 +12,13 @@ interface Props {
   people: number;
   guestInfo: GuestInfo;
   companionInfo?: CompanionInfo;
+  staffName?: string | null;
   onConfirm: () => Promise<void>;
   onBack: () => void;
 }
 
 export function BookingConfirm({
-  service, date, slot, sessions, people, guestInfo, companionInfo, onConfirm, onBack,
+  service, date, slot, sessions, people, guestInfo, companionInfo, staffName, onConfirm, onBack,
 }: Props) {
   const { merchant } = useMerchant();
   const [submitting, setSubmitting] = useState(false);
@@ -51,6 +52,7 @@ export function BookingConfirm({
 
         <div className="divide-y" style={{ borderColor: 'var(--t-line)' }}>
           <Row label={terminology?.service || '服務'} value={service.name} />
+          <Row label={terminology?.provider || '服務人員'} value={staffName || '系統將為您安排最合適的老師'} />
           <Row label="日期" value={formatDateDisplay(date)} />
           <Row label="時間" value={slot.time} />
           <Row label="時長" value={`${service.duration_minutes} 分鐘`} />

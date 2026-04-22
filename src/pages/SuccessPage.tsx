@@ -1,5 +1,6 @@
 import { useLocation, useNavigate, useParams } from 'react-router-dom';
 import { useMerchant } from '../hooks/useMerchant';
+import { useAuth } from '../hooks/useAuth';
 import { useTheme } from '../hooks/useTheme';
 import type { CreateBookingResponse, GroupBookingItem } from '../api/booking-api';
 
@@ -8,7 +9,12 @@ export default function SuccessPage() {
   const navigate = useNavigate();
   const location = useLocation();
   const { merchant } = useMerchant();
+  const { customer } = useAuth();
   const { template } = useTheme();
+
+  // Guest = no LINE identity yet. Show an "add LINE friend" CTA so they can receive reminders.
+  const isGuest = !customer?.line_user_id;
+  const lineOaUrl = merchant?.line_oa_url;
 
   const result = (location.state as { bookingResult?: CreateBookingResponse })?.bookingResult;
   const booking = result?.booking;
@@ -195,6 +201,35 @@ export default function SuccessPage() {
               </a>
             )}
           </div>
+        </div>
+      )}
+
+      {isGuest && lineOaUrl && (
+        <div
+          className="w-full max-w-md mb-4 p-5 text-center"
+          style={{
+            background: 'rgba(6, 199, 85, 0.08)',
+            border: '1px solid rgba(6, 199, 85, 0.25)',
+            borderRadius: 'var(--t-card-radius, 14px)',
+          }}
+        >
+          <p className="text-sm mb-3" style={{ color: 'var(--t-text)' }}>
+            加入 LINE 好友即可收到<br />預約提醒與最新消息
+          </p>
+          <a
+            href={lineOaUrl}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="inline-flex items-center justify-center gap-2 font-medium text-white hover:brightness-110 transition-all"
+            style={{
+              backgroundColor: '#06C755',
+              minHeight: '44px',
+              padding: '10px 22px',
+              borderRadius: 'var(--t-btn-radius)',
+            }}
+          >
+            加入 LINE 好友
+          </a>
         </div>
       )}
 

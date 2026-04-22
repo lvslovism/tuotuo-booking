@@ -36,8 +36,18 @@ const LIFECYCLE_MAP: Record<string, { label: string; icon: string }> = {
 // ============================================================
 export function MemberPage() {
   const { merchantCode, merchant } = useMerchant();
-  const { isAuthenticated, token } = useAuth();
+  const { isAuthenticated, token, clearAuth } = useAuth();
   const navigate = useNavigate();
+
+  const handleLogout = () => {
+    if (!confirm('確定要登出嗎？')) return;
+    try {
+      sessionStorage.removeItem('wb_booking_return');
+      sessionStorage.removeItem('line_login_state');
+    } catch { /* ignore */ }
+    clearAuth();
+    navigate(`/s/${merchantCode}`, { replace: true });
+  };
 
   // Portal data
   const [portal, setPortal] = useState<CustomerPortalResponse | null>(null);
@@ -84,17 +94,41 @@ export function MemberPage() {
       .finally(() => setLoading(false));
   }, [isAuthenticated, token, merchantCode, merchant]);
 
+  const formatCancelError = (code: string): string => {
+    switch (code) {
+      case 'TOO_LATE_TO_CANCEL':
+      case 'CANCELLATION_TOO_LATE':
+        return '距離預約時間太近，無法線上取消，請聯繫店家協助處理。';
+      case 'CANCEL_LIMIT_EXCEEDED':
+        return '近期取消次數已達上限，請聯繫店家協助處理。';
+      case 'CANCEL_NOT_ALLOWED':
+        return '此商家不允許客人自行取消預約，請聯繫店家協助處理。';
+      default:
+        return '取消失敗，請稍後再試或聯繫店家。';
+    }
+  };
+
   const handleCancel = async (bookingId: string) => {
     if (!token) return;
     if (!confirm('確定要取消此預約嗎？')) return;
     setCancellingId(bookingId);
     try {
-      await cancelBooking(token, merchantCode, bookingId);
+      const res = await cancelBooking(token, merchantCode, bookingId);
+      // 200 response 也可能帶 error 欄位（雖然 EF 會回 400，但保險起見）
+      if (res.error) {
+        alert(res.message || formatCancelError(res.error));
+        return;
+      }
+      if (res.waitlist_notified && res.waitlist_notified > 0) {
+        alert(`預約已取消\n🔔 已通知 ${res.waitlist_notified} 位候補客人`);
+      }
       // Refresh portal
       const data = await fetchCustomerPortal(token, merchantCode);
       if (!data.error) setPortal(data);
-    } catch {
-      alert('取消失敗，請稍後再試');
+    } catch (err) {
+      // apiFetch throws with body.error (the error code) as message
+      const code = err instanceof Error ? err.message : '';
+      alert(formatCancelError(code));
     } finally {
       setCancellingId(null);
     }
@@ -129,6 +163,23 @@ export function MemberPage() {
             </button>
           )}
         </div>
+        {isAuthenticated && (
+          <button
+            type="button"
+            onClick={handleLogout}
+            className="w-full text-sm font-medium transition-colors hover:bg-gray-200"
+            style={{
+              minHeight: '44px',
+              padding: '12px 16px',
+              backgroundColor: '#F3F4F6',
+              color: '#6B7280',
+              border: '1px solid #E5E7EB',
+              borderRadius: 'var(--t-btn-radius, 10px)',
+            }}
+          >
+            登出
+          </button>
+        )}
       </div>
     );
   }
@@ -280,6 +331,25 @@ export function MemberPage() {
           </div>
         </Section>
       )}
+
+      {/* ── Logout ── */}
+      <div className="pt-4">
+        <button
+          type="button"
+          onClick={handleLogout}
+          className="w-full text-sm font-medium transition-colors hover:bg-gray-200"
+          style={{
+            minHeight: '44px',
+            padding: '12px 16px',
+            backgroundColor: '#F3F4F6',
+            color: '#6B7280',
+            border: '1px solid #E5E7EB',
+            borderRadius: 'var(--t-btn-radius, 10px)',
+          }}
+        >
+          登出
+        </button>
+      </div>
     </div>
   );
 }

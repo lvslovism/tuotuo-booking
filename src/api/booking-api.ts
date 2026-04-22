@@ -1,4 +1,4 @@
-import type { Merchant, Service, CalendarDay, SlotsResponse, Package } from '../types';
+import type { Merchant, Service, CalendarDay, SlotsResponse, Package, ResourcesResponse } from '../types';
 
 const API_BASE = import.meta.env.VITE_API_BASE;
 
@@ -28,10 +28,21 @@ export function fetchCalendarStatus(merchantCode: string, month: string, service
   return apiFetch<{ days: CalendarDay[]; month: string; sessions: number }>(url);
 }
 
-export function fetchAvailableSlots(merchantCode: string, date: string, serviceId: string, people = 1) {
+export function fetchAvailableSlots(
+  merchantCode: string,
+  date: string,
+  serviceId: string,
+  people = 1,
+  resourceId: string | null = null,
+) {
   let url = `${API_BASE}?action=available-slots&m=${merchantCode}&date=${date}&service_id=${serviceId}`;
   if (people > 1) url += `&people=${people}`;
+  if (resourceId) url += `&resource_id=${encodeURIComponent(resourceId)}`;
   return apiFetch<SlotsResponse>(url);
+}
+
+export function fetchResources(merchantCode: string) {
+  return apiFetch<ResourcesResponse>(`${API_BASE}?action=resources&m=${merchantCode}`);
 }
 
 export function fetchPackages(merchantCode: string) {
@@ -47,6 +58,7 @@ export interface WaitlistPayload {
   customer_name: string;
   customer_phone: string;
   preferred_resource_id?: string;
+  customer_line_user_id?: string;
 }
 
 export function addToWaitlist(payload: WaitlistPayload) {
@@ -171,8 +183,19 @@ export function fetchMyBookings(token: string, merchantCode: string, status: 'up
   );
 }
 
+export interface CancelBookingResponse {
+  success?: boolean;
+  error?: string;
+  message?: string;
+  cancelled_count?: number;
+  waitlist_notified?: number;
+  hours_remaining?: number;
+  recent_cancels?: number;
+  limit?: number;
+}
+
 export function cancelBooking(token: string, merchantCode: string, bookingId: string, reason?: string, cancelGroup = false) {
-  return apiFetch<{ success: boolean }>(`${API_BASE}?action=cancel-booking&m=${merchantCode}`, {
+  return apiFetch<CancelBookingResponse>(`${API_BASE}?action=cancel-booking&m=${merchantCode}`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
     body: JSON.stringify({ booking_id: bookingId, reason, cancel_group: cancelGroup }),

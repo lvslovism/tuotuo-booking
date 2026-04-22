@@ -1,19 +1,21 @@
 import { useState, useMemo } from 'react';
 import { useSearchParams, useNavigate } from 'react-router-dom';
 import { useMerchant } from '../hooks/useMerchant';
+import { useAuth } from '../hooks/useAuth';
 import { addToWaitlist } from '../api/booking-api';
 import { cn } from '../utils/cn';
 
 export function WaitlistPage() {
   const { merchantCode } = useMerchant();
+  const { customer } = useAuth();
   const [params] = useSearchParams();
   const navigate = useNavigate();
 
   const serviceId = params.get('service_id') || '';
   const serviceName = params.get('service_name') || '';
 
-  const [name, setName] = useState('');
-  const [phone, setPhone] = useState('');
+  const [name, setName] = useState(customer?.name || '');
+  const [phone, setPhone] = useState(customer?.phone || '');
   const [selectedDates, setSelectedDates] = useState<string[]>([]);
   const [timeStart, setTimeStart] = useState('09:00');
   const [timeEnd, setTimeEnd] = useState('21:00');
@@ -58,6 +60,7 @@ export function WaitlistPage() {
         preferred_time_end: timeEnd,
         customer_name: name.trim(),
         customer_phone: phone.trim(),
+        customer_line_user_id: customer?.line_user_id ?? undefined,
       });
       setSuccess(true);
     } catch (err) {

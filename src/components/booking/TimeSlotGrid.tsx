@@ -11,10 +11,11 @@ interface Props {
   serviceId: string;
   date: string;
   people?: number;
+  resourceId?: string | null;
   onSelect: (slot: TimeSlot, sessions: number) => void;
 }
 
-export function TimeSlotGrid({ serviceId, date, people = 1, onSelect }: Props) {
+export function TimeSlotGrid({ serviceId, date, people = 1, resourceId = null, onSelect }: Props) {
   const { merchantCode } = useMerchant();
   const { template } = useTheme();
   const navigate = useNavigate();
@@ -27,14 +28,14 @@ export function TimeSlotGrid({ serviceId, date, people = 1, onSelect }: Props) {
     if (!merchantCode || !date || !serviceId) return;
     setLoading(true);
     setSelectedTime('');
-    fetchAvailableSlots(merchantCode, date, serviceId, people)
+    fetchAvailableSlots(merchantCode, date, serviceId, people, resourceId)
       .then((data) => {
         setSlots(data.slots || []);
         setSessions(data.sessions || 1);
       })
       .catch(() => setSlots([]))
       .finally(() => setLoading(false));
-  }, [merchantCode, date, serviceId, people]);
+  }, [merchantCode, date, serviceId, people, resourceId]);
 
   if (!date) return null;
   if (loading) return <Loading text="載入可用時段..." />;

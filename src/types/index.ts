@@ -147,7 +147,8 @@ export interface Customer {
   id: string;
   name: string;
   phone?: string;
-  line_user_id?: string;
+  gender?: string;
+  line_user_id?: string | null;
   avatar_url?: string;
 }
 
@@ -158,9 +159,26 @@ export interface AuthState {
   isAuthenticated: boolean;
 }
 
+// === Resource (師傅，from ?action=resources) ===
+
+export type StaffSelectionMode = 'hidden' | 'optional' | 'required';
+
+export interface Resource {
+  id: string;
+  name: string;
+  title: string | null;
+  avatar_url: string | null;
+  bio: string | null;
+}
+
+export interface ResourcesResponse {
+  staff_selection_mode: StaffSelectionMode;
+  resources: Resource[];
+}
+
 // === Booking Flow State ===
 
-export type BookingStep = 'service' | 'datetime' | 'info' | 'confirm';
+export type BookingStep = 'service' | 'staff' | 'datetime' | 'info' | 'confirm';
 
 export interface GuestInfo {
   name: string;
