@@ -101,6 +101,7 @@ export function GuestForm({
       customer={customer}
       lineChannelId={lineChannelId}
       merchantCode={merchantCode}
+      merchantPhone={merchant?.phone}
       bookingReturnState={bookingReturnState}
       showCompanion={showCompanion}
       onSubmit={onSubmit}
@@ -266,6 +267,7 @@ interface FullAuthFormProps {
   customer: ReturnType<typeof useAuth>['customer'];
   lineChannelId?: string;
   merchantCode?: string;
+  merchantPhone?: string;
   bookingReturnState?: BookingReturnState;
   showCompanion: boolean;
   onSubmit: (info: GuestInfo, companion?: CompanionInfo) => void;
@@ -276,12 +278,12 @@ function FullAuthForm({
   customer,
   lineChannelId,
   merchantCode,
+  merchantPhone,
   bookingReturnState,
   showCompanion,
   onSubmit,
   onBack,
 }: FullAuthFormProps) {
-  const [showGuestForm, setShowGuestForm] = useState(false);
   const [name, setName] = useState('');
   const [phone, setPhone] = useState('');
   const [gender, setGender] = useState<GuestInfo['gender']>('');
@@ -300,6 +302,7 @@ function FullAuthForm({
   }, [customer]);
 
   const showLineLogin = !!lineChannelId && !!merchantCode;
+  const phoneDigits = merchantPhone?.replace(/\D/g, '');
 
   const handleLineLogin = () => {
     if (!lineChannelId || !merchantCode) return;
@@ -343,42 +346,43 @@ function FullAuthForm({
     <div className="theme-card p-5 space-y-4 theme-enter">
       <h2 className="theme-title text-lg">填寫預約資料</h2>
 
-      {showLineLogin && (
+      {(showLineLogin || phoneDigits) && (
         <div className="space-y-3">
-          <button
-            type="button"
-            onClick={handleLineLogin}
-            className="w-full flex items-center justify-center gap-2 font-medium text-white transition-all hover:brightness-110"
-            style={{
-              backgroundColor: '#06C755',
-              minHeight: '48px',
-              borderRadius: 'var(--t-btn-radius)',
-              padding: '14px 16px',
-              fontSize: '1.0625rem',
-            }}
-          >
-            <LineIcon />
-            <span>LINE預約</span>
-          </button>
-          <button
-            type="button"
-            onClick={() => setShowGuestForm((v) => !v)}
-            aria-expanded={showGuestForm}
-            className="w-full flex items-center justify-center font-medium bg-gray-200 text-gray-700 hover:bg-gray-300 transition"
-            style={{
-              minHeight: '48px',
-              borderRadius: 'var(--t-btn-radius)',
-              padding: '14px 16px',
-              fontSize: '1.0625rem',
-            }}
-          >
-            電話預約
-          </button>
+          {showLineLogin && (
+            <button
+              type="button"
+              onClick={handleLineLogin}
+              className="w-full flex items-center justify-center gap-2 font-medium text-white transition-all hover:brightness-110"
+              style={{
+                backgroundColor: '#06C755',
+                minHeight: '48px',
+                borderRadius: 'var(--t-btn-radius)',
+                padding: '14px 16px',
+                fontSize: '1.0625rem',
+              }}
+            >
+              <LineIcon />
+              <span>LINE預約</span>
+            </button>
+          )}
+          {phoneDigits && (
+            <a
+              href={`tel:${phoneDigits}`}
+              className="w-full flex items-center justify-center font-medium bg-gray-200 text-gray-700 hover:bg-gray-300 transition"
+              style={{
+                minHeight: '48px',
+                borderRadius: 'var(--t-btn-radius)',
+                padding: '14px 16px',
+                fontSize: '1.0625rem',
+              }}
+            >
+              電話預約
+            </a>
+          )}
         </div>
       )}
 
-      {(!showLineLogin || showGuestForm) && (
-        <form onSubmit={handleSubmit} className="space-y-4">
+      <form onSubmit={handleSubmit} className="space-y-4">
           <Field label="姓名" error={errors.name}>
             <input
               type="text"
@@ -437,7 +441,6 @@ function FullAuthForm({
             下一步
           </Button>
         </form>
-      )}
 
       <div className="flex pt-1">
         <Button type="button" variant="outline" size="md" onClick={onBack} className="flex-1">
