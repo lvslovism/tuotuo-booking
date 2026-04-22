@@ -42,6 +42,10 @@ export interface PricingRules {
   group_discount?: GroupDiscount;
 }
 
+export interface MerchantDisplaySettings {
+  show_services_tab?: boolean;
+}
+
 export type ThemeTemplate = 'zen' | 'warm';
 
 export interface Merchant {
@@ -63,6 +67,7 @@ export interface Merchant {
   disclaimer: string;
   pricing_info: Record<string, unknown>;
   pricing_rules?: PricingRules;
+  display_settings?: MerchantDisplaySettings;
 }
 
 // === Service (from ?action=services) ===

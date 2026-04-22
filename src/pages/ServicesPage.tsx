@@ -1,21 +1,25 @@
 import { useEffect, useState } from 'react';
+import { Navigate } from 'react-router-dom';
 import { useMerchant } from '../hooks/useMerchant';
 import { fetchServices } from '../api/booking-api';
 import { Loading } from '../components/ui/Loading';
 import type { Service } from '../types';
 
 export function ServicesPage() {
-  const { merchantCode } = useMerchant();
+  const { merchant, merchantCode } = useMerchant();
   const [services, setServices] = useState<Service[]>([]);
   const [loading, setLoading] = useState(true);
+  const showServicesTab = merchant?.display_settings?.show_services_tab !== false;
 
   useEffect(() => {
-    if (!merchantCode) return;
+    if (!merchantCode || !showServicesTab) return;
     fetchServices(merchantCode)
       .then((data) => setServices(data.services || []))
       .catch(() => {})
       .finally(() => setLoading(false));
-  }, [merchantCode]);
+  }, [merchantCode, showServicesTab]);
+
+  if (!showServicesTab) return <Navigate to={`/s/${merchantCode}`} replace />;
 
   if (loading) return <Loading text="載入服務項目..." />;
 

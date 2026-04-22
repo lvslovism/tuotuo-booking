@@ -6,6 +6,7 @@ export function Navbar() {
   const { merchant, merchantCode } = useMerchant();
   const { template } = useTheme();
   const base = `/s/${merchantCode}`;
+  const showServicesTab = merchant?.display_settings?.show_services_tab !== false;
 
   if (template === 'zen') {
     const code = (merchant?.merchant_code || merchantCode || '').toUpperCase();
@@ -21,7 +22,9 @@ export function Navbar() {
           </Link>
           <div className="flex items-center gap-4 text-xs tracking-[0.15em]">
             <NavLink to={base}>預約</NavLink>
-            <NavLink to={`${base}/services`}>{merchant?.terminology?.service || '服務'}</NavLink>
+            {showServicesTab && (
+              <NavLink to={`${base}/services`}>{merchant?.terminology?.service || '服務'}</NavLink>
+            )}
             <NavLink to={`${base}/member`}>會員</NavLink>
           </div>
         </div>
@@ -52,7 +55,9 @@ export function Navbar() {
         </Link>
         <div className="flex items-center gap-1 text-sm">
           <WarmLink to={base}>預約</WarmLink>
-          <WarmLink to={`${base}/services`}>{merchant?.terminology?.service || '服務'}</WarmLink>
+          {showServicesTab && (
+            <WarmLink to={`${base}/services`}>{merchant?.terminology?.service || '服務'}</WarmLink>
+          )}
           <WarmLink to={`${base}/member`}>會員</WarmLink>
         </div>
       </div>
