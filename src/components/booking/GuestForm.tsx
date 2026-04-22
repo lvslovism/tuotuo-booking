@@ -358,38 +358,21 @@ function FullAuthForm({
             }}
           >
             <LineIcon />
-            <span>用 LINE 完成預約</span>
+            <span>LINE預約</span>
           </button>
-          <ul className="text-sm space-y-1" style={{ color: 'var(--t-sub)' }}>
-            <li className="flex items-start gap-2">
-              <Check />
-              <span>自動帶入姓名，少填資料</span>
-            </li>
-            <li className="flex items-start gap-2">
-              <Check />
-              <span>收到預約提醒和回訪通知</span>
-            </li>
-            <li className="flex items-start gap-2">
-              <Check />
-              <span>下次預約一鍵完成</span>
-            </li>
-          </ul>
-        </div>
-      )}
-
-      {showLineLogin && (
-        <div className="text-center" style={{ borderTop: '1px solid var(--t-line)', paddingTop: '12px' }}>
           <button
             type="button"
             onClick={() => setShowGuestForm((v) => !v)}
-            className="text-sm inline-flex items-center gap-1"
-            style={{ color: 'var(--t-sub)', minHeight: '44px', padding: '10px 12px' }}
             aria-expanded={showGuestForm}
+            className="w-full flex items-center justify-center font-medium bg-gray-200 text-gray-700 hover:bg-gray-300 transition"
+            style={{
+              minHeight: '48px',
+              borderRadius: 'var(--t-btn-radius)',
+              padding: '14px 16px',
+              fontSize: '1.0625rem',
+            }}
           >
-            <span className="underline">
-              {showGuestForm ? '收起手動填寫' : '不方便使用 LINE？點此手動填寫'}
-            </span>
-            <Caret open={showGuestForm} />
+            電話預約
           </button>
         </div>
       )}
@@ -527,44 +510,6 @@ function Field({
       {children}
       {error && <p className="text-xs mt-1" style={{ color: '#E57373' }}>{error}</p>}
     </div>
-  );
-}
-
-function Caret({ open }: { open: boolean }) {
-  return (
-    <svg
-      width="12"
-      height="12"
-      viewBox="0 0 24 24"
-      fill="none"
-      stroke="currentColor"
-      strokeWidth="2.5"
-      strokeLinecap="round"
-      strokeLinejoin="round"
-      aria-hidden="true"
-      style={{ transition: 'transform 150ms', transform: open ? 'rotate(180deg)' : 'none' }}
-    >
-      <polyline points="6 9 12 15 18 9" />
-    </svg>
-  );
-}
-
-function Check() {
-  return (
-    <svg
-      width="16"
-      height="16"
-      viewBox="0 0 24 24"
-      fill="none"
-      stroke="#06C755"
-      strokeWidth="3"
-      strokeLinecap="round"
-      strokeLinejoin="round"
-      aria-hidden="true"
-      className="flex-shrink-0 mt-0.5"
-    >
-      <polyline points="20 6 9 17 4 12" />
-    </svg>
   );
 }
 
