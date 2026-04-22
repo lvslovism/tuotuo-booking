@@ -1,6 +1,6 @@
 import { createContext, useState, useEffect, type ReactNode } from 'react';
 import type { AuthState, Customer } from '../types';
-import type { CustomerRow } from '@tuotuo/db';
+import type { CustomerRow } from '../lib/db';
 
 // Re-export the full DB customer row for screens that need all backend fields
 export type CustomerDbRow = CustomerRow;

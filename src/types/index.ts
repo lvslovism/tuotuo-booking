@@ -4,7 +4,7 @@ import type {
   ServiceRow,
   ResourceRow,
   BookingRow,
-} from '@tuotuo/db';
+} from '../lib/db';
 
 // DB Row aliases — source of truth for backend data shapes
 export type DbCustomer = CustomerRow;

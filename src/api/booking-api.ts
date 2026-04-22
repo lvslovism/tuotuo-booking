@@ -1,5 +1,5 @@
 import type { Merchant, Service, CalendarDay, SlotsResponse, Package, ResourcesResponse } from '../types';
-import { SUPABASE_URL } from '@tuotuo/db';
+import { SUPABASE_URL } from '../lib/db';
 
 const API_BASE = import.meta.env.VITE_API_BASE || `${SUPABASE_URL}/functions/v1/web-booking-api`;
 
