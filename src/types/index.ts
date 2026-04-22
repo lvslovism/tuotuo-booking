@@ -1,3 +1,18 @@
+import type {
+  CustomerRow,
+  MerchantRow,
+  ServiceRow,
+  ResourceRow,
+  BookingRow,
+} from '@tuotuo/db';
+
+// DB Row aliases — source of truth for backend data shapes
+export type DbCustomer = CustomerRow;
+export type DbMerchant = MerchantRow;
+export type DbService = ServiceRow;
+export type DbResource = ResourceRow;
+export type DbBooking = BookingRow;
+
 // === Merchant (matches web-booking-api merchant-info response) ===
 
 export interface MerchantTheme {

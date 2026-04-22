@@ -1,6 +1,7 @@
 import type { Merchant, Service, CalendarDay, SlotsResponse, Package, ResourcesResponse } from '../types';
+import { SUPABASE_URL } from '@tuotuo/db';
 
-const API_BASE = import.meta.env.VITE_API_BASE;
+const API_BASE = import.meta.env.VITE_API_BASE || `${SUPABASE_URL}/functions/v1/web-booking-api`;
 
 async function apiFetch<T>(url: string, options?: RequestInit): Promise<T> {
   const res = await fetch(url, options);
