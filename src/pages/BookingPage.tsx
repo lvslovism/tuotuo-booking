@@ -314,6 +314,8 @@ export function BookingPage() {
             date: booking.date || selectedDate,
             time: booking.slot?.time,
           }}
+          initialGuestInfo={booking.guestInfo}
+          initialCompanionInfo={booking.companionInfo}
           onSubmit={handleGuestSubmit}
           onBack={booking.goBack}
         />

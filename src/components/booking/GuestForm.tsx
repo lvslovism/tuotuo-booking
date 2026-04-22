@@ -15,6 +15,10 @@ interface Props {
   merchant?: Merchant | null;
   merchantCode?: string;
   bookingReturnState?: BookingReturnState;
+  // Carried over from useBooking state so step5→step4 back-nav preserves input
+  // and prevents the LINE auto-skip from bouncing the user straight back.
+  initialGuestInfo?: GuestInfo;
+  initialCompanionInfo?: CompanionInfo;
   onSubmit: (info: GuestInfo, companion?: CompanionInfo) => void;
   onBack: () => void;
 }
@@ -47,6 +51,8 @@ export function GuestForm({
   merchant,
   merchantCode,
   bookingReturnState,
+  initialGuestInfo,
+  initialCompanionInfo,
   onSubmit,
   onBack,
 }: Props) {
@@ -58,11 +64,15 @@ export function GuestForm({
   const hasValidGender = customer?.gender === 'male' || customer?.gender === 'female';
   const profileComplete = hasLineIdentity && !!customer?.phone && hasValidGender;
   const showCompanion = people >= 2;
+  // If user already submitted once (e.g. came back from confirm), don't auto-skip
+  // or render the placeholder — let them edit and re-submit explicitly.
+  const alreadySubmitted = !!initialGuestInfo?.name;
 
   // Auto-skip for LINE returning customers with complete profile and no companion needed.
   const autoSkipRef = useRef(false);
   useEffect(() => {
     if (autoSkipRef.current) return;
+    if (alreadySubmitted) return;
     if (!profileComplete) return;
     if (showCompanion) return; // need companion info → can't auto-skip
     autoSkipRef.current = true;
@@ -71,9 +81,9 @@ export function GuestForm({
       phone: customer!.phone!,
       gender: customer!.gender as GuestInfo['gender'],
     });
-  }, [profileComplete, showCompanion, customer, onSubmit]);
+  }, [profileComplete, showCompanion, customer, onSubmit, alreadySubmitted]);
 
-  if (profileComplete && !showCompanion) {
+  if (profileComplete && !showCompanion && !alreadySubmitted) {
     // About to auto-skip — render a lightweight placeholder to avoid flashing the form.
     return (
       <div className="theme-card p-5 text-center text-sm" style={{ color: 'var(--t-sub)' }}>
@@ -90,6 +100,8 @@ export function GuestForm({
         mode={mode}
         setAuth={setAuth}
         showCompanion={showCompanion}
+        initialGuestInfo={initialGuestInfo}
+        initialCompanionInfo={initialCompanionInfo}
         onSubmit={onSubmit}
         onBack={onBack}
       />
@@ -104,6 +116,8 @@ export function GuestForm({
       merchantPhone={merchant?.phone}
       bookingReturnState={bookingReturnState}
       showCompanion={showCompanion}
+      initialGuestInfo={initialGuestInfo}
+      initialCompanionInfo={initialCompanionInfo}
       onSubmit={onSubmit}
       onBack={onBack}
     />
@@ -120,6 +134,8 @@ interface LineCustomerFormProps {
   mode: ReturnType<typeof useAuth>['mode'];
   setAuth: ReturnType<typeof useAuth>['setAuth'];
   showCompanion: boolean;
+  initialGuestInfo?: GuestInfo;
+  initialCompanionInfo?: CompanionInfo;
   onSubmit: (info: GuestInfo, companion?: CompanionInfo) => void;
   onBack: () => void;
 }
@@ -130,18 +146,25 @@ function LineCustomerForm({
   mode,
   setAuth,
   showCompanion,
+  initialGuestInfo,
+  initialCompanionInfo,
   onSubmit,
   onBack,
 }: LineCustomerFormProps) {
-  const [name, setName] = useState(customer.name || '');
-  const [phone, setPhone] = useState(customer.phone || '');
-  const [gender, setGender] = useState<GuestInfo['gender']>(
-    customer.gender === 'male' || customer.gender === 'female'
+  const [name, setName] = useState(initialGuestInfo?.name || customer.name || '');
+  const [phone, setPhone] = useState(initialGuestInfo?.phone || customer.phone || '');
+  const [gender, setGender] = useState<GuestInfo['gender']>(() => {
+    if (initialGuestInfo?.gender === 'male' || initialGuestInfo?.gender === 'female') {
+      return initialGuestInfo.gender;
+    }
+    return customer.gender === 'male' || customer.gender === 'female'
       ? (customer.gender as GuestInfo['gender'])
-      : '',
+      : '';
+  });
+  const [companionName, setCompanionName] = useState(initialCompanionInfo?.name || '');
+  const [companionGender, setCompanionGender] = useState<CompanionInfo['gender']>(
+    initialCompanionInfo?.gender || '',
   );
-  const [companionName, setCompanionName] = useState('');
-  const [companionGender, setCompanionGender] = useState<CompanionInfo['gender']>('');
   const [errors, setErrors] = useState<Record<string, string>>({});
 
   const validate = (): boolean => {
@@ -270,6 +293,8 @@ interface FullAuthFormProps {
   merchantPhone?: string;
   bookingReturnState?: BookingReturnState;
   showCompanion: boolean;
+  initialGuestInfo?: GuestInfo;
+  initialCompanionInfo?: CompanionInfo;
   onSubmit: (info: GuestInfo, companion?: CompanionInfo) => void;
   onBack: () => void;
 }
@@ -281,14 +306,22 @@ function FullAuthForm({
   merchantPhone,
   bookingReturnState,
   showCompanion,
+  initialGuestInfo,
+  initialCompanionInfo,
   onSubmit,
   onBack,
 }: FullAuthFormProps) {
-  const [name, setName] = useState('');
-  const [phone, setPhone] = useState('');
-  const [gender, setGender] = useState<GuestInfo['gender']>('');
-  const [companionName, setCompanionName] = useState('');
-  const [companionGender, setCompanionGender] = useState<CompanionInfo['gender']>('');
+  const [name, setName] = useState(initialGuestInfo?.name || '');
+  const [phone, setPhone] = useState(initialGuestInfo?.phone || '');
+  const [gender, setGender] = useState<GuestInfo['gender']>(
+    initialGuestInfo?.gender === 'male' || initialGuestInfo?.gender === 'female'
+      ? initialGuestInfo.gender
+      : '',
+  );
+  const [companionName, setCompanionName] = useState(initialCompanionInfo?.name || '');
+  const [companionGender, setCompanionGender] = useState<CompanionInfo['gender']>(
+    initialCompanionInfo?.gender || '',
+  );
   const [errors, setErrors] = useState<Record<string, string>>({});
 
   // Prefill from rehydrated session (回訪 Guest 客戶)
