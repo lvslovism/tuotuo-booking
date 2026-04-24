@@ -10,6 +10,7 @@ export function Footer() {
     >
       <p>{merchant?.display_name}</p>
       <p className="mt-1 opacity-60">Powered by 妥妥預約</p>
+      <p className="mt-1 opacity-50">您的使用資料（不含個資）將用於改善預約體驗。</p>
     </footer>
   );
 }

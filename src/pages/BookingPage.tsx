@@ -4,6 +4,7 @@ import { useMerchant } from '../hooks/useMerchant';
 import { useAuth } from '../hooks/useAuth';
 import { useBooking } from '../hooks/useBooking';
 import { verifyIdentity, createBooking, fetchResources, fetchServices } from '../api/booking-api';
+import { logFunnel } from '../lib/funnel';
 import { Stepper } from '../components/booking/Stepper';
 import { ServiceSelector } from '../components/booking/ServiceSelector';
 import { StaffSelector } from '../components/booking/StaffSelector';
@@ -54,6 +55,26 @@ export function BookingPage() {
     }
   });
   const booking = useBooking(staffMode);
+
+  // Funnel: landing + abandoned tracking
+  useEffect(() => {
+    if (!merchantCode) return;
+    // Only log once per session per merchant for landing; useBooking step drives the rest.
+    logFunnel('landing');
+  }, [merchantCode]);
+
+  useEffect(() => {
+    const handleBeforeUnload = () => {
+      // Skip if already at success — closing the tab after booking is normal.
+      if (booking.step === 'confirm' && booking.slot) return;
+      logFunnel('abandoned', {
+        failure_reason: 'user_closed',
+        metadata: { at_step: booking.step },
+      });
+    };
+    window.addEventListener('beforeunload', handleBeforeUnload);
+    return () => window.removeEventListener('beforeunload', handleBeforeUnload);
+  }, [booking.step, booking.slot]);
 
   const groupBooking = merchant?.booking_rules?.group_booking;
   const groupEnabled = groupBooking?.enabled === true && (groupBooking?.max_people ?? 1) > 1;
@@ -151,6 +172,7 @@ export function BookingPage() {
   }, [booking.selectStaff]);
 
   const handleSelectDate = useCallback((date: string) => {
+    logFunnel('select_date', { selected_date: date });
     setSelectedDate(date);
   }, []);
 
@@ -168,42 +190,59 @@ export function BookingPage() {
   const handleConfirm = useCallback(async () => {
     if (!booking.service || !booking.slot) return;
 
-    // Step 1: Verify identity (guest mode) to get JWT
-    let authToken = token;
-    if (!authToken) {
-      const authResult = await verifyIdentity(merchantCode, {
-        mode: 'guest',
-        name: booking.guestInfo.name,
-        phone: booking.guestInfo.phone,
-        gender: booking.guestInfo.gender,
+    try {
+      // Step 1: Verify identity (guest mode) to get JWT
+      let authToken = token;
+      if (!authToken) {
+        const authResult = await verifyIdentity(merchantCode, {
+          mode: 'guest',
+          name: booking.guestInfo.name,
+          phone: booking.guestInfo.phone,
+          gender: booking.guestInfo.gender,
+        });
+        authToken = authResult.session_token;
+        setAuth(authResult.session_token, {
+          id: authResult.customer.id,
+          name: authResult.customer.name,
+          phone: authResult.customer.phone,
+        }, 'guest');
+      }
+
+      // Step 2: Create booking — 有選師傅就帶入 resource_id
+      const result = await createBooking(authToken!, merchantCode, {
+        service_id: booking.service.id,
+        date: booking.date,
+        time: booking.slot.time,
+        sessions: booking.sessions,
+        people: booking.people,
+        customer_name: booking.guestInfo?.name,
+        customer_phone: booking.guestInfo?.phone,
+        customer_gender: booking.guestInfo?.gender,
+        ...(booking.staffId ? { resource_id: booking.staffId } : {}),
+        ...(booking.people >= 2 && booking.companionInfo?.name
+          ? { companion_name: booking.companionInfo.name, companion_gender: booking.companionInfo.gender || undefined }
+          : {}),
       });
-      authToken = authResult.session_token;
-      setAuth(authResult.session_token, {
-        id: authResult.customer.id,
-        name: authResult.customer.name,
-        phone: authResult.customer.phone,
-      }, 'guest');
+
+      logFunnel('success', {
+        service_id: booking.service.id,
+        resource_id: booking.staffId ?? undefined,
+        booking_id: result?.booking?.id,
+      });
+
+      navigate(`/s/${merchantCode}/success`, {
+        state: { bookingResult: result },
+      });
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : String(err);
+      logFunnel('error', {
+        service_id: booking.service?.id,
+        resource_id: booking.staffId ?? undefined,
+        failure_reason: 'create_booking_failed',
+        failure_detail: msg.slice(0, 300),
+      });
+      throw err;
     }
-
-    // Step 2: Create booking — 有選師傅就帶入 resource_id
-    const result = await createBooking(authToken!, merchantCode, {
-      service_id: booking.service.id,
-      date: booking.date,
-      time: booking.slot.time,
-      sessions: booking.sessions,
-      people: booking.people,
-      customer_name: booking.guestInfo?.name,
-      customer_phone: booking.guestInfo?.phone,
-      customer_gender: booking.guestInfo?.gender,
-      ...(booking.staffId ? { resource_id: booking.staffId } : {}),
-      ...(booking.people >= 2 && booking.companionInfo?.name
-        ? { companion_name: booking.companionInfo.name, companion_gender: booking.companionInfo.gender || undefined }
-        : {}),
-    });
-
-    navigate(`/s/${merchantCode}/success`, {
-      state: { bookingResult: result },
-    });
   }, [booking, token, merchantCode, navigate, setAuth]);
 
   return (

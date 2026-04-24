@@ -1,4 +1,5 @@
 import { useState, useCallback } from 'react';
+import { logFunnel } from '../lib/funnel';
 import type {
   Service,
   TimeSlot,
@@ -50,6 +51,7 @@ export function useBooking(mode: StaffSelectionMode = 'hidden') {
   }, []);
 
   const selectService = useCallback((service: Service) => {
+    logFunnel('select_service', { service_id: service.id });
     setState((s) => ({
       ...s,
       service,
@@ -59,6 +61,7 @@ export function useBooking(mode: StaffSelectionMode = 'hidden') {
 
   // resource=null 表示「不指定（自動安排）」— 僅 optional 模式允許
   const selectStaff = useCallback((resource: Resource | null) => {
+    logFunnel('select_resource', { resource_id: resource?.id });
     setState((s) => ({
       ...s,
       staffId: resource?.id ?? null,
@@ -72,10 +75,15 @@ export function useBooking(mode: StaffSelectionMode = 'hidden') {
   }, []);
 
   const selectSlot = useCallback((date: string, slot: TimeSlot, sessions: number) => {
+    logFunnel('select_time', {
+      selected_date: date,
+      selected_time: slot?.time,
+    });
     setState((s) => ({ ...s, date, slot, sessions, step: 'info' }));
   }, []);
 
   const setGuestInfo = useCallback((guestInfo: GuestInfo) => {
+    logFunnel('confirm');
     setState((s) => ({ ...s, guestInfo, step: 'confirm' }));
   }, []);
 
