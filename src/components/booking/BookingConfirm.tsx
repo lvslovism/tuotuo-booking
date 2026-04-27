@@ -26,6 +26,14 @@ export function BookingConfirm({
 
   const terminology = merchant?.terminology;
   const groupDiscount = merchant?.pricing_rules?.group_discount;
+  const termProvider = terminology?.provider || '服務人員';
+
+  const providerDisplay =
+    people >= 2
+      ? `系統將為您安排 ${people} 位${termProvider}（依時段可用情況自動分配）`
+      : staffName
+        ? staffName
+        : `系統將為您安排最合適的${termProvider}`;
   const totalSessions = people * sessions;
   const isGroup = totalSessions >= (groupDiscount?.min_people_or_sessions ?? 2);
   const discountPerSession = isGroup && groupDiscount?.enabled ? groupDiscount.discount_per_session : 0;
@@ -52,7 +60,7 @@ export function BookingConfirm({
 
         <div className="divide-y" style={{ borderColor: 'var(--t-line)' }}>
           <Row label={terminology?.service || '服務'} value={service.name} />
-          <Row label={terminology?.provider || '服務人員'} value={staffName || '系統將為您安排最合適的老師'} />
+          <Row label={termProvider} value={providerDisplay} />
           <Row label="日期" value={formatDateDisplay(date)} />
           <Row label="時間" value={slot.time} />
           <Row label="時長" value={`${service.duration_minutes} 分鐘`} />

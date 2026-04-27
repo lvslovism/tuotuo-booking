@@ -1,25 +1,24 @@
-import type { BookingStep, StaffSelectionMode } from '../../types';
+import type { BookingStep } from '../../types';
 
-function buildSteps(mode: StaffSelectionMode): { key: BookingStep; label: string }[] {
-  const base: { key: BookingStep; label: string }[] = [
-    { key: 'service', label: '選服務' },
-  ];
-  if (mode !== 'hidden') base.push({ key: 'staff', label: '選師傅' });
-  base.push(
-    { key: 'datetime', label: '選時段' },
+function buildSteps(hasPartyStep: boolean): { key: BookingStep; label: string }[] {
+  const steps: { key: BookingStep; label: string }[] = [{ key: 'service', label: '選服務' }];
+  if (hasPartyStep) steps.push({ key: 'party', label: '人數·師傅' });
+  steps.push(
+    { key: 'date', label: '選日期' },
+    { key: 'time', label: '選時段' },
     { key: 'info', label: '填資料' },
     { key: 'confirm', label: '確認' },
   );
-  return base;
+  return steps;
 }
 
 interface Props {
   current: BookingStep;
-  mode?: StaffSelectionMode;
+  hasPartyStep?: boolean;
 }
 
-export function Stepper({ current, mode = 'hidden' }: Props) {
-  const steps = buildSteps(mode);
+export function Stepper({ current, hasPartyStep = false }: Props) {
+  const steps = buildSteps(hasPartyStep);
   const currentIdx = steps.findIndex((s) => s.key === current);
 
   return (

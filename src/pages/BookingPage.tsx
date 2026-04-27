@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { useMerchant } from '../hooks/useMerchant';
 import { useAuth } from '../hooks/useAuth';
@@ -7,8 +7,7 @@ import { verifyIdentity, createBooking, fetchResources, fetchServices } from '..
 import { logFunnel } from '../lib/funnel';
 import { Stepper } from '../components/booking/Stepper';
 import { ServiceSelector } from '../components/booking/ServiceSelector';
-import { StaffSelector } from '../components/booking/StaffSelector';
-import { PeopleSelector } from '../components/booking/PeopleSelector';
+import { PartySizeAndStaff } from '../components/booking/PartySizeAndStaff';
 import { Calendar } from '../components/booking/Calendar';
 import { TimeSlotGrid } from '../components/booking/TimeSlotGrid';
 import { GuestForm } from '../components/booking/GuestForm';
@@ -21,6 +20,7 @@ import type {
   CompanionInfo,
   Resource,
   StaffSelectionMode,
+  GroupDiscount,
 } from '../types';
 
 const BOOKING_RETURN_KEY = 'wb_booking_return';
@@ -38,7 +38,6 @@ export function BookingPage() {
   const { token, setAuth } = useAuth();
   const navigate = useNavigate();
   const [searchParams, setSearchParams] = useSearchParams();
-  const [selectedDate, setSelectedDate] = useState('');
   const [staffMode, setStaffMode] = useState<StaffSelectionMode>('hidden');
   const [resources, setResources] = useState<Resource[]>([]);
   const [resourcesLoaded, setResourcesLoaded] = useState(false);
@@ -54,18 +53,32 @@ export function BookingPage() {
       return false;
     }
   });
-  const booking = useBooking(staffMode);
+
+  // Group booking 設定（驅動 Step 2 的人數區塊是否顯示）
+  const groupBooking = merchant?.booking_rules?.group_booking;
+  const activeResources = useMemo(() => resources, [resources]); // EF 已過濾 inactive
+  const maxPeople = Math.min(
+    activeResources.length || 1,
+    groupBooking?.max_people ?? 1,
+  );
+  const groupEnabled = groupBooking?.enabled === true && maxPeople >= 2;
+  const groupDiscount = (merchant?.pricing_rules?.group_discount
+    || ((merchant?.pricing_info as Record<string, unknown>)?.group_discount as
+      | GroupDiscount
+      | undefined));
+
+  // hasPartyStep: 有任何東西要在 Step 2 選 → 顯示 step
+  const hasPartyStep = staffMode !== 'hidden' || groupEnabled;
+  const booking = useBooking({ hasPartyStep });
 
   // Funnel: landing + abandoned tracking
   useEffect(() => {
     if (!merchantCode) return;
-    // Only log once per session per merchant for landing; useBooking step drives the rest.
     logFunnel('landing');
   }, [merchantCode]);
 
   useEffect(() => {
     const handleBeforeUnload = () => {
-      // Skip if already at success — closing the tab after booking is normal.
       if (booking.step === 'confirm' && booking.slot) return;
       logFunnel('abandoned', {
         failure_reason: 'user_closed',
@@ -75,11 +88,6 @@ export function BookingPage() {
     window.addEventListener('beforeunload', handleBeforeUnload);
     return () => window.removeEventListener('beforeunload', handleBeforeUnload);
   }, [booking.step, booking.slot]);
-
-  const groupBooking = merchant?.booking_rules?.group_booking;
-  const groupEnabled = groupBooking?.enabled === true && (groupBooking?.max_people ?? 1) > 1;
-  const groupDiscount = merchant?.pricing_rules?.group_discount
-    || (merchant?.pricing_info as Record<string, unknown>)?.group_discount as import('../types').GroupDiscount | undefined;
 
   // 載入師傅清單 + staff_selection_mode
   // ⚠️ 必須在 ServiceSelector 渲染前 resolve，否則單服務 auto-select 會讀到 stale mode='hidden' 跳過 staff 步驟
@@ -91,7 +99,6 @@ export function BookingPage() {
         setResources(data.resources || []);
       })
       .catch(() => {
-        // 失敗就當 hidden，功能退化但不 block
         setStaffMode('hidden');
         setResources([]);
       })
@@ -109,7 +116,6 @@ export function BookingPage() {
     } catch {
       rawReturn = null;
     }
-    // Clear the marker regardless — one-shot
     try {
       sessionStorage.removeItem(BOOKING_RETURN_KEY);
     } catch { /* ignore */ }
@@ -142,21 +148,16 @@ export function BookingPage() {
       .then(({ services }) => {
         const svc = services.find((s) => s.id === payload.serviceId);
         if (!svc) return;
-        booking.selectService(svc);
-        if (payload.staffId) {
-          const staff = resources.find((r) => r.id === payload.staffId);
-          if (staff) booking.selectStaff(staff);
-        } else if (staffMode !== 'hidden') {
-          booking.selectStaff(null);
-        }
-        booking.selectSlot(
-          payload.date!,
-          { time: payload.time!, available: true, available_resources: 1 },
-          1,
-        );
-        setSelectedDate(payload.date!);
-        // Stay on 'info' step — LINE doesn't provide phone/gender; GuestForm will prefill name
-        booking.setStep('info');
+        const staff = payload.staffId ? resources.find((r) => r.id === payload.staffId) : null;
+        booking.restoreState({
+          service: svc,
+          staffId: staff?.id ?? null,
+          staffName: staff?.name ?? null,
+          date: payload.date!,
+          slot: { time: payload.time!, available: true, available_resources: 1 },
+          sessions: 1,
+          step: 'info',
+        });
       })
       .catch(() => { /* fall through to fresh flow */ })
       .finally(() => setRestoring(false));
@@ -167,18 +168,13 @@ export function BookingPage() {
     booking.selectService(service);
   }, [booking.selectService]);
 
-  const handleSelectStaff = useCallback((resource: Resource | null) => {
-    booking.selectStaff(resource);
-  }, [booking.selectStaff]);
-
   const handleSelectDate = useCallback((date: string) => {
-    logFunnel('select_date', { selected_date: date });
-    setSelectedDate(date);
-  }, []);
+    booking.selectDate(date);
+  }, [booking.selectDate]);
 
   const handleSelectSlot = useCallback((slot: TimeSlot, sessions: number) => {
-    booking.selectSlot(selectedDate, slot, sessions);
-  }, [booking.selectSlot, selectedDate]);
+    booking.selectSlot(slot, sessions);
+  }, [booking.selectSlot]);
 
   const handleGuestSubmit = useCallback((info: GuestInfo, companion?: CompanionInfo) => {
     if (companion) {
@@ -191,7 +187,6 @@ export function BookingPage() {
     if (!booking.service || !booking.slot) return;
 
     try {
-      // Step 1: Verify identity (guest mode) to get JWT
       let authToken = token;
       if (!authToken) {
         const authResult = await verifyIdentity(merchantCode, {
@@ -208,7 +203,6 @@ export function BookingPage() {
         }, 'guest');
       }
 
-      // Step 2: Create booking — 有選師傅就帶入 resource_id
       const result = await createBooking(authToken!, merchantCode, {
         service_id: booking.service.id,
         date: booking.date,
@@ -261,7 +255,7 @@ export function BookingPage() {
         <div className="theme-gold-divider" />
       </div>
 
-      <Stepper current={booking.step} mode={staffMode} />
+      <Stepper current={booking.step} hasPartyStep={hasPartyStep} />
 
       {/* 等 fetchResources 先 resolve，避免 ServiceSelector 單服務 auto-select 跑在 mode='hidden' 閉包下 */}
       {/* restoring: 跳過所有 step UI，避免 ServiceSelector 的單服務 auto-select 覆蓋回來的狀態 */}
@@ -272,68 +266,71 @@ export function BookingPage() {
         <ServiceSelector onSelect={handleSelectService} />
       )}
 
-      {/* Step 1.5: Select staff (optional/required) */}
-      {booking.step === 'staff' && (
-        <StaffSelector
-          resources={resources}
-          mode={staffMode}
-          onSelect={handleSelectStaff}
+      {/* Step 2: Party size + staff */}
+      {booking.step === 'party' && (
+        <PartySizeAndStaff
+          resources={activeResources}
+          staffMode={staffMode}
+          groupEnabled={groupEnabled}
+          maxPeople={maxPeople}
+          groupDiscount={groupDiscount}
+          people={booking.people}
+          staffId={booking.staffId}
+          onChangePeople={booking.setPeople}
+          onChangeStaff={booking.setStaff}
+          onConfirm={booking.confirmParty}
           onBack={booking.goBack}
         />
       )}
 
-      {/* Step 2: Select date + time (with optional people selector) */}
-      {booking.step === 'datetime' && booking.service && (
+      {/* Step 3: Pick date */}
+      {booking.step === 'date' && booking.service && (
         <div>
           <div className="flex items-center justify-between mb-3">
-            <h2 className="theme-title text-lg">選擇日期與時段</h2>
+            <h2 className="theme-title text-lg">選擇日期</h2>
             <button
               onClick={booking.goBack}
               className="text-sm hover:underline"
               style={{ color: 'var(--t-primary)' }}
             >
-              ← {staffMode === 'hidden'
-                ? `換${merchant?.terminology?.service || '服務'}`
-                : `換${merchant?.terminology?.provider || '服務人員'}`}
+              ← 上一步
             </button>
           </div>
-          <div
-            className="rounded-lg px-3 py-2 mb-3 text-sm"
-            style={{ background: 'var(--t-primary-soft)' }}
-          >
-            <span className="font-medium" style={{ color: 'var(--t-primary)' }}>
-              {booking.service.name}
-            </span>
-            <span className="ml-2" style={{ color: 'var(--t-sub)' }}>
-              {booking.service.duration_minutes}分鐘 · NT${booking.service.price}
-            </span>
-            {booking.staffName && (
-              <span className="ml-2" style={{ color: 'var(--t-primary)' }}>
-                · {booking.staffName}
-              </span>
-            )}
-          </div>
-
-          {/* People selector — visible when group_booking is enabled */}
-          {groupEnabled && (
-            <PeopleSelector
-              people={booking.people}
-              maxPeople={groupBooking?.max_people || booking.service.max_party_size || 2}
-              groupDiscount={groupDiscount ?? { enabled: true, discount_per_session: 0, min_people_or_sessions: 2, description: '' }}
-              terminology={{ booking: merchant?.terminology?.booking }}
-              onChange={booking.setPeople}
-            />
-          )}
-
+          <BookingSummaryCard
+            service={booking.service}
+            people={booking.people}
+            staffName={booking.staffName}
+          />
           <Calendar
             serviceId={booking.service.id}
-            selectedDate={selectedDate}
+            selectedDate={booking.date}
             people={booking.people}
             onSelectDate={handleSelectDate}
           />
+        </div>
+      )}
+
+      {/* Step 4: Pick time slot */}
+      {booking.step === 'time' && booking.service && booking.date && (
+        <div>
+          <div className="flex items-center justify-between mb-3">
+            <h2 className="theme-title text-lg">選擇時段</h2>
+            <button
+              onClick={booking.goBack}
+              className="text-sm hover:underline"
+              style={{ color: 'var(--t-primary)' }}
+            >
+              ← 換日期
+            </button>
+          </div>
+          <BookingSummaryCard
+            service={booking.service}
+            people={booking.people}
+            staffName={booking.staffName}
+          />
           <TimeSlotGrid
             serviceId={booking.service.id}
-            date={selectedDate}
+            date={booking.date}
             people={booking.people}
             resourceId={booking.staffId}
             onSelect={handleSelectSlot}
@@ -341,7 +338,7 @@ export function BookingPage() {
         </div>
       )}
 
-      {/* Step 3: Fill info */}
+      {/* Step 5: Fill info */}
       {booking.step === 'info' && (
         <GuestForm
           people={booking.people}
@@ -350,7 +347,7 @@ export function BookingPage() {
           bookingReturnState={{
             serviceId: booking.service?.id ?? null,
             staffId: booking.staffId,
-            date: booking.date || selectedDate,
+            date: booking.date,
             time: booking.slot?.time,
           }}
           initialGuestInfo={booking.guestInfo}
@@ -360,7 +357,7 @@ export function BookingPage() {
         />
       )}
 
-      {/* Step 4: Confirm */}
+      {/* Step 6: Confirm */}
       {booking.step === 'confirm' && booking.service && booking.slot && (
         <BookingConfirm
           service={booking.service}
@@ -374,6 +371,40 @@ export function BookingPage() {
           onConfirm={handleConfirm}
           onBack={booking.goBack}
         />
+      )}
+    </div>
+  );
+}
+
+function BookingSummaryCard({
+  service,
+  people,
+  staffName,
+}: {
+  service: Service;
+  people: number;
+  staffName: string | null;
+}) {
+  return (
+    <div
+      className="rounded-lg px-3 py-2 mb-3 text-sm"
+      style={{ background: 'var(--t-primary-soft)' }}
+    >
+      <span className="font-medium" style={{ color: 'var(--t-primary)' }}>
+        {service.name}
+      </span>
+      <span className="ml-2" style={{ color: 'var(--t-sub)' }}>
+        {service.duration_minutes}分鐘 · NT${service.price}
+      </span>
+      {people >= 2 && (
+        <span className="ml-2" style={{ color: 'var(--t-primary)' }}>
+          · {people} 人同行
+        </span>
+      )}
+      {people === 1 && staffName && (
+        <span className="ml-2" style={{ color: 'var(--t-primary)' }}>
+          · {staffName}
+        </span>
       )}
     </div>
   );

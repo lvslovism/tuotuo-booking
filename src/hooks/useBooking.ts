@@ -7,7 +7,6 @@ import type {
   CompanionInfo,
   BookingStep,
   Resource,
-  StaffSelectionMode,
 } from '../types';
 
 interface BookingState {
@@ -19,7 +18,7 @@ interface BookingState {
   people: number;
   companionInfo: CompanionInfo;
   guestInfo: GuestInfo;
-  staffId: string | null;       // 客人指定的師傅 ID；null 代表「不指定」或未啟用
+  staffId: string | null;       // 客人指定的師傅 ID；null = 不指定/2人+ 自動分配/未啟用
   staffName: string | null;     // 快取供確認頁顯示
 }
 
@@ -36,14 +35,19 @@ const initialState: BookingState = {
   staffName: null,
 };
 
-// hidden → service → datetime；其他 → service → staff → datetime
-function stepsFor(mode: StaffSelectionMode): BookingStep[] {
-  return mode === 'hidden'
-    ? ['service', 'datetime', 'info', 'confirm']
-    : ['service', 'staff', 'datetime', 'info', 'confirm'];
+// hasPartyStep=true: service → party → date → time → info → confirm
+// hasPartyStep=false: service → date → time → info → confirm
+function stepsFor(hasPartyStep: boolean): BookingStep[] {
+  return hasPartyStep
+    ? ['service', 'party', 'date', 'time', 'info', 'confirm']
+    : ['service', 'date', 'time', 'info', 'confirm'];
 }
 
-export function useBooking(mode: StaffSelectionMode = 'hidden') {
+interface UseBookingOptions {
+  hasPartyStep: boolean;
+}
+
+export function useBooking({ hasPartyStep }: UseBookingOptions) {
   const [state, setState] = useState<BookingState>(initialState);
 
   const setStep = useCallback((step: BookingStep) => {
@@ -55,31 +59,47 @@ export function useBooking(mode: StaffSelectionMode = 'hidden') {
     setState((s) => ({
       ...s,
       service,
-      step: mode === 'hidden' ? 'datetime' : 'staff',
+      step: hasPartyStep ? 'party' : 'date',
     }));
-  }, [mode]);
+  }, [hasPartyStep]);
 
-  // resource=null 表示「不指定（自動安排）」— 僅 optional 模式允許
-  const selectStaff = useCallback((resource: Resource | null) => {
+  const setPeople = useCallback((people: number) => {
+    setState((s) => {
+      // 2+ 人時 staff 一律 null（系統自動分配）
+      if (people >= 2) {
+        return { ...s, people, staffId: null, staffName: null };
+      }
+      return { ...s, people };
+    });
+  }, []);
+
+  // resource=null 表示「不指定（自動安排）」— 僅 optional 模式或 2+人時允許
+  const setStaff = useCallback((resource: Resource | null) => {
     logFunnel('select_resource', { resource_id: resource?.id });
     setState((s) => ({
       ...s,
       staffId: resource?.id ?? null,
       staffName: resource?.name ?? null,
-      step: 'datetime',
     }));
   }, []);
 
-  const setPeople = useCallback((people: number) => {
-    setState((s) => ({ ...s, people }));
+  const confirmParty = useCallback(() => {
+    setState((s) => ({ ...s, step: 'date' }));
   }, []);
 
-  const selectSlot = useCallback((date: string, slot: TimeSlot, sessions: number) => {
-    logFunnel('select_time', {
-      selected_date: date,
-      selected_time: slot?.time,
+  const selectDate = useCallback((date: string) => {
+    logFunnel('select_date', { selected_date: date });
+    setState((s) => ({ ...s, date, step: 'time' }));
+  }, []);
+
+  const selectSlot = useCallback((slot: TimeSlot, sessions: number) => {
+    setState((s) => {
+      logFunnel('select_time', {
+        selected_date: s.date,
+        selected_time: slot?.time,
+      });
+      return { ...s, slot, sessions, step: 'info' };
     });
-    setState((s) => ({ ...s, date, slot, sessions, step: 'info' }));
   }, []);
 
   const setGuestInfo = useCallback((guestInfo: GuestInfo) => {
@@ -95,18 +115,24 @@ export function useBooking(mode: StaffSelectionMode = 'hidden') {
     setState(initialState);
   }, []);
 
+  // 用於 LINE Login 回流時直接還原狀態（跳過所有 step transition logic）
+  const restoreState = useCallback((patch: Partial<BookingState>) => {
+    setState((s) => ({ ...s, ...patch }));
+  }, []);
+
   const goBack = useCallback(() => {
     setState((s) => {
-      const steps = stepsFor(mode);
+      const steps = stepsFor(hasPartyStep);
       const idx = steps.indexOf(s.step);
       if (idx <= 0) return s;
       return { ...s, step: steps[idx - 1] };
     });
-  }, [mode]);
+  }, [hasPartyStep]);
 
   return {
     ...state,
-    setStep, selectService, selectStaff, setPeople, selectSlot,
-    setGuestInfo, setCompanionInfo, reset, goBack,
+    setStep, selectService, setPeople, setStaff, confirmParty,
+    selectDate, selectSlot, setGuestInfo, setCompanionInfo, reset,
+    restoreState, goBack,
   };
 }

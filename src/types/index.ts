@@ -193,7 +193,7 @@ export interface ResourcesResponse {
 
 // === Booking Flow State ===
 
-export type BookingStep = 'service' | 'staff' | 'datetime' | 'info' | 'confirm';
+export type BookingStep = 'service' | 'party' | 'date' | 'time' | 'info' | 'confirm';
 
 export interface GuestInfo {
   name: string;
