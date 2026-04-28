@@ -34,6 +34,9 @@ export interface MerchantBookingRules {
   slot_interval_minutes: number;
   min_advance_hours: number;
   max_advance_days: number;
+  max_daily_bookings_per_customer?: number;
+  auto_confirm?: boolean;
+  allow_same_day?: boolean;
   cancellation_policy: {
     allowed: boolean;
     min_hours_before: number;
@@ -43,6 +46,16 @@ export interface MerchantBookingRules {
   group_booking?: {
     enabled: boolean;
     max_people: number;
+    max_sessions?: number;
+  };
+  staff_break_rules?: {
+    consecutive_limit?: {
+      enabled?: boolean;
+      max_sessions?: number;
+      break_duration_minutes?: number;
+    };
+    max_daily_sessions_per_staff?: number;
+    fixed_breaks?: Array<{ start: string; end: string; label?: string }>;
   };
 }
 
@@ -59,6 +72,8 @@ export interface PricingRules {
 
 export interface MerchantDisplaySettings {
   show_services_tab?: boolean;
+  terminology?: MerchantTerminology;
+  theme?: Record<string, unknown>;
 }
 
 export type ThemeTemplate = 'zen' | 'warm';

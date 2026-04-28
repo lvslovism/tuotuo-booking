@@ -1,5 +1,6 @@
 import { useEffect, useState, useCallback } from 'react';
 import { useMerchant } from '../hooks/useMerchant';
+import { useMerchantTerminology } from '../hooks/useMerchantTerminology';
 import { fetchStaffPerformance, type StaffPerformanceResponse, type StaffScheduleItem } from '../api/booking-api';
 import { Button } from '../components/ui/Button';
 import { Loading } from '../components/ui/Loading';
@@ -44,6 +45,7 @@ function formatStatus(status: string): { label: string; color: string } {
 
 export function StaffPage() {
   const { merchantCode, merchant } = useMerchant();
+  const t = useMerchantTerminology();
 
   const [liffReady, setLiffReady] = useState(false);
   const [liffError, setLiffError] = useState('');
@@ -103,7 +105,7 @@ export function StaffPage() {
       const result = await fetchStaffPerformance(merchantCode, lineUserId, period, liffToken);
       if (result.error) {
         setError(result.error === 'STAFF_NOT_FOUND'
-          ? '找不到您的師傅帳號，請聯繫管理員設定 LINE 綁定'
+          ? `找不到您的${t.provider}帳號，請聯繫管理員設定 LINE 綁定`
           : String(result.error));
         return;
       }
@@ -124,7 +126,7 @@ export function StaffPage() {
     return (
       <div className="flex flex-col items-center justify-center min-h-[60vh] gap-4 px-4">
         <div className="text-5xl">🔒</div>
-        <h1 className="text-xl font-bold text-gray-800">師傅績效面板</h1>
+        <h1 className="text-xl font-bold text-gray-800">{t.provider}績效面板</h1>
         <p className="text-text-secondary text-sm text-center">
           請透過 LINE 內嵌瀏覽器開啟此頁面
         </p>

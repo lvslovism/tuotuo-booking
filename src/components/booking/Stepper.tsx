@@ -1,8 +1,9 @@
 import type { BookingStep } from '../../types';
+import { useMerchantTerminology } from '../../hooks/useMerchantTerminology';
 
-function buildSteps(hasPartyStep: boolean): { key: BookingStep; label: string }[] {
+function buildSteps(hasPartyStep: boolean, providerLabel: string): { key: BookingStep; label: string }[] {
   const steps: { key: BookingStep; label: string }[] = [{ key: 'service', label: '選服務' }];
-  if (hasPartyStep) steps.push({ key: 'party', label: '人數·師傅' });
+  if (hasPartyStep) steps.push({ key: 'party', label: `人數·${providerLabel}` });
   steps.push(
     { key: 'date', label: '選日期' },
     { key: 'time', label: '選時段' },
@@ -18,7 +19,8 @@ interface Props {
 }
 
 export function Stepper({ current, hasPartyStep = false }: Props) {
-  const steps = buildSteps(hasPartyStep);
+  const t = useMerchantTerminology();
+  const steps = buildSteps(hasPartyStep, t.provider);
   const currentIdx = steps.findIndex((s) => s.key === current);
 
   return (

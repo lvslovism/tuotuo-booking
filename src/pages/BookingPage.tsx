@@ -296,6 +296,22 @@ export function BookingPage() {
               ← 上一步
             </button>
           </div>
+          {merchant?.booking_rules?.allow_same_day === false && merchant?.phone && (
+            <div
+              className="theme-card p-4 text-center mb-3"
+              style={{ background: 'var(--t-primary-soft)' }}
+            >
+              <p className="font-medium" style={{ color: 'var(--t-primary)' }}>
+                ⏰ 不接受當日預約
+              </p>
+              <p className="text-sm mt-1" style={{ color: 'var(--t-sub)' }}>
+                當日預約請來電{' '}
+                <a href={`tel:${merchant.phone}`} className="underline">
+                  {merchant.phone}
+                </a>
+              </p>
+            </div>
+          )}
           <BookingSummaryCard
             service={booking.service}
             people={booking.people}
