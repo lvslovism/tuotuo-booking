@@ -4,9 +4,11 @@ import { useMerchant } from '../hooks/useMerchant';
 import { useAuth } from '../hooks/useAuth';
 import {
   fetchCustomerPortal,
+  fetchMyBookings,
   cancelBooking,
   updateProfile,
   type CustomerPortalResponse,
+  type BookingRecord,
   type UpdateProfilePayload,
 } from '../api/booking-api';
 import { Loading } from '../components/ui/Loading';
@@ -16,6 +18,7 @@ import {
   clearBookingReturn,
   clearLineLoginState,
 } from '../lib/lineLogin';
+import { aggregate, type AggregatedCard } from '../lib/bookingAggregator';
 
 // ============================================================
 // Lifecycle badge mapping
@@ -47,30 +50,37 @@ export function MemberPage() {
 
   // Portal data
   const [portal, setPortal] = useState<CustomerPortalResponse | null>(null);
+  // Phase 8: my-bookings 拿到含 group_id / session_group_id 的完整 booking record，
+  // 用於聚合顯示。fn_customer_portal 的 upcoming_bookings 缺欄位，無法直接聚合。
+  const [upcomingRaw, setUpcomingRaw] = useState<BookingRecord[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
-  const [cancellingId, setCancellingId] = useState<string | null>(null);
+  const [cancellingKey, setCancellingKey] = useState<string | null>(null);
 
-  // ── Fetch portal data (AuthGuard already gated authentication) ──
+  // ── Fetch portal data + upcoming bookings (AuthGuard gates auth) ──
   useEffect(() => {
-    if (!merchant) return; // wait for merchant data
-    if (!isAuthenticated) return; // AuthGuard handles redirect
+    if (!merchant) return;
+    if (!isAuthenticated) return;
     if (!token || !merchantCode) return;
 
     setLoading(true);
     setError('');
-    fetchCustomerPortal(token, merchantCode)
-      .then((data) => {
-        if (data.error) {
+    Promise.all([
+      fetchCustomerPortal(token, merchantCode),
+      fetchMyBookings(token, merchantCode, 'upcoming').catch(() => ({ bookings: [] as BookingRecord[] })),
+    ])
+      .then(([portalData, myBookings]) => {
+        if (portalData.error) {
           setError(
-            data.error === 'NO_LINE_USER'
+            portalData.error === 'NO_LINE_USER'
               ? '尚未綁定 LINE 帳號，無法使用會員中心'
-              : data.error === 'CUSTOMER_NOT_FOUND'
+              : portalData.error === 'CUSTOMER_NOT_FOUND'
                 ? '找不到您的會員資料'
                 : '載入失敗，請重試'
           );
         } else {
-          setPortal(data);
+          setPortal(portalData);
+          setUpcomingRaw(myBookings.bookings || []);
         }
       })
       .catch(() => setError('載入失敗，請重試'))
@@ -91,13 +101,20 @@ export function MemberPage() {
     }
   };
 
-  const handleCancel = async (bookingId: string) => {
+  // Phase 8: 整組為一單位。卡片代表一張預約意圖；取消 = cascade 整組。
+  // EF cancel-booking 已支援 cancel_group=true（同 group_id ∪ 同 session_group_id），
+  // 故只需打第一筆 booking_id 並設旗標，無需前端 loop。
+  const handleCancelCard = async (card: AggregatedCard) => {
     if (!token) return;
-    if (!confirm('確定要取消此預約嗎？')) return;
-    setCancellingId(bookingId);
+    const isGroup = card.bookings.length > 1;
+    const confirmMsg = isGroup
+      ? `將取消整組 ${card.bookings.length} 筆預約（${card.date} ${card.timeRange}），確定？`
+      : '確定要取消此預約嗎？';
+    if (!confirm(confirmMsg)) return;
+    setCancellingKey(card.groupKey);
     try {
-      const res = await cancelBooking(token, merchantCode, bookingId);
-      // 200 response 也可能帶 error 欄位（雖然 EF 會回 400，但保險起見）
+      const firstId = card.bookings[0].id;
+      const res = await cancelBooking(token, merchantCode, firstId, undefined, isGroup);
       if (res.error) {
         alert(res.message || formatCancelError(res.error));
         return;
@@ -105,16 +122,35 @@ export function MemberPage() {
       if (res.waitlist_notified && res.waitlist_notified > 0) {
         alert(`預約已取消\n🔔 已通知 ${res.waitlist_notified} 位候補客人`);
       }
-      // Refresh portal
-      const data = await fetchCustomerPortal(token, merchantCode);
-      if (!data.error) setPortal(data);
+      // Refresh both portal + upcoming
+      const [portalData, myBookings] = await Promise.all([
+        fetchCustomerPortal(token, merchantCode),
+        fetchMyBookings(token, merchantCode, 'upcoming').catch(() => ({ bookings: [] as BookingRecord[] })),
+      ]);
+      if (!portalData.error) setPortal(portalData);
+      setUpcomingRaw(myBookings.bookings || []);
     } catch (err) {
-      // apiFetch throws with body.error (the error code) as message
       const code = err instanceof Error ? err.message : '';
       alert(formatCancelError(code));
     } finally {
-      setCancellingId(null);
+      setCancellingKey(null);
     }
+  };
+
+  // Phase 8: 既有 reschedule-booking EF 僅支援單筆 booking_id；多堂連續/多人同行的 UX
+  // 需要 slot calculator 重新展開（spec §2 明示不動 reschedule 實作）。多筆群組先導去
+  // 第一筆的改期頁，confirm 提示限制；整組改期留待後續 phase。
+  const handleRescheduleCard = (card: AggregatedCard) => {
+    const isGroup = card.bookings.length > 1;
+    if (isGroup) {
+      const ok = confirm(
+        `此預約包含 ${card.bookings.length} 筆（${card.date} ${card.timeRange}）。\n` +
+          `目前僅支援逐筆改期，建議聯絡店家統一處理。\n\n是否仍要改期第一堂？`,
+      );
+      if (!ok) return;
+    }
+    const firstId = card.bookings[0].id;
+    navigate(`/s/${merchantCode}/reschedule?booking_id=${firstId}`);
   };
 
   const handleRetryLogin = () => {
@@ -203,7 +239,9 @@ export function MemberPage() {
   }
 
   // ── Full portal view ──
-  const { customer, upcoming_bookings, loyalty_card, stored_value, packages, recent_visits } = portal;
+  const { customer, loyalty_card, stored_value, packages, recent_visits } = portal;
+  // Phase 8: 由 my-bookings 回傳的完整 booking record 聚合成 group_id 一張卡。
+  const aggregatedCards = aggregate(upcomingRaw);
   const lifecycle = LIFECYCLE_MAP[customer.lifecycle_stage] || { label: customer.lifecycle_stage, icon: '👤' };
   const memberSince = new Date(customer.member_since).toLocaleDateString('zh-TW', { year: 'numeric', month: 'long' });
 
@@ -236,19 +274,19 @@ export function MemberPage() {
         />
       </Section>
 
-      {/* ── Upcoming Bookings ── */}
+      {/* ── Upcoming Bookings (Phase 8: 一個 group_id 一張卡) ── */}
       <Section title="即將到來的預約" icon="📅">
-        {upcoming_bookings.length === 0 ? (
+        {aggregatedCards.length === 0 ? (
           <EmptyState icon="📅" text="目前沒有即將到來的預約" />
         ) : (
           <div className="space-y-3">
-            {upcoming_bookings.map((b) => (
-              <PortalBookingCard
-                key={b.id}
-                booking={b}
-                cancelling={cancellingId === b.id}
-                onCancel={() => handleCancel(b.id)}
-                onReschedule={() => navigate(`/s/${merchantCode}/reschedule?id=${b.id}`)}
+            {aggregatedCards.map((card) => (
+              <AggregatedBookingCard
+                key={card.groupKey}
+                card={card}
+                cancelling={cancellingKey === card.groupKey}
+                onCancel={() => handleCancelCard(card)}
+                onReschedule={() => handleRescheduleCard(card)}
               />
             ))}
           </div>
@@ -661,41 +699,72 @@ function errorToZh(code: string): string {
   }
 }
 
-function PortalBookingCard({
-  booking,
+// Phase 8: 一張卡 = 一個預約意圖（group_id 或 session_group_id 聚合後）。
+// 顯示同行人數 / 連續堂數，但不暴露「N 筆 booking」這種技術細節。
+function AggregatedBookingCard({
+  card,
   cancelling,
   onCancel,
   onReschedule,
 }: {
-  booking: CustomerPortalResponse['upcoming_bookings'][0];
+  card: AggregatedCard;
   cancelling: boolean;
   onCancel: () => void;
   onReschedule: () => void;
 }) {
-  const dt = new Date(booking.start_time);
-  const dateStr = dt.toLocaleDateString('zh-TW', { month: 'numeric', day: 'numeric', weekday: 'short', timeZone: 'Asia/Taipei' });
-  const timeStr = dt.toLocaleTimeString('zh-TW', { hour: '2-digit', minute: '2-digit', hour12: false, timeZone: 'Asia/Taipei' });
+  const earliest = new Date(card.earliestStart);
+  const dateStr = earliest.toLocaleDateString('zh-TW', {
+    month: 'numeric',
+    day: 'numeric',
+    weekday: 'short',
+    timeZone: 'Asia/Taipei',
+  });
+
+  const totalPrice = card.bookings.reduce((sum, b) => sum + (b.final_price || 0), 0);
+
+  const statusBadge =
+    card.status === 'confirmed'
+      ? { label: '已確認', cls: 'bg-green-100 text-green-700' }
+      : card.status === 'pending'
+        ? { label: '待確認', cls: 'bg-yellow-100 text-yellow-700' }
+        : card.status === 'partial'
+          ? { label: '部分已取消', cls: 'bg-orange-100 text-orange-700' }
+          : { label: card.status, cls: 'bg-gray-100 text-gray-700' };
 
   return (
     <div className="bg-white rounded-xl shadow-sm p-4 space-y-3">
       <div className="flex justify-between items-start">
         <div>
-          <h4 className="font-medium text-gray-800">{booking.service_name}</h4>
-          {booking.resource_name && (
-            <p className="text-xs text-text-secondary">{booking.resource_name}</p>
+          <h4 className="font-medium text-gray-800">{card.serviceName}</h4>
+          {card.staffNames.length > 0 && (
+            <p className="text-xs text-text-secondary">{card.staffNames.join('、')}</p>
           )}
         </div>
-        <span className="text-xs bg-green-100 text-green-700 px-2 py-0.5 rounded-full font-medium">
-          {booking.status === 'confirmed' ? '已確認' : '待確認'}
+        <span className={`text-xs px-2 py-0.5 rounded-full font-medium ${statusBadge.cls}`}>
+          {statusBadge.label}
         </span>
       </div>
-      <div className="flex items-center gap-4 text-sm text-gray-600">
+      <div className="flex flex-wrap items-center gap-x-4 gap-y-1 text-sm text-gray-600">
         <span>📅 {dateStr}</span>
-        <span>🕐 {timeStr}</span>
-        {booking.total_price > 0 && (
-          <span className="text-accent font-medium">NT${booking.total_price.toLocaleString()}</span>
+        <span>🕐 {card.timeRange}</span>
+        {totalPrice > 0 && (
+          <span className="text-accent font-medium">NT${totalPrice.toLocaleString()}</span>
         )}
       </div>
+      {(card.sessionCount > 1 || card.partySize > 1) && (
+        <div className="flex flex-wrap gap-2 text-xs">
+          {card.sessionCount > 1 && (
+            <span className="bg-primary/10 text-primary px-2 py-0.5 rounded-full">
+              {card.sessionCount} 堂連續
+            </span>
+          )}
+          {card.partySize > 1 && (
+            <span className="bg-primary/10 text-primary px-2 py-0.5 rounded-full">
+              {card.partySize} 人同行
+            </span>
+          )}
+        </div>
+      )}
       <div className="flex gap-3">
         <button
           onClick={onReschedule}

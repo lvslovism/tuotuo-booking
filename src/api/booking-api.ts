@@ -182,10 +182,18 @@ export interface BookingRecord {
   cancelled_at: string | null;
   cancellation_reason: string | null;
   customer_name: string;
-  group_id: string;
-  group_size: number;
-  group_index: number;
+  // group_id：M 人同時段的高層 key（單人預約時可能為 null）
+  group_id: string | null;
+  group_size: number | null;
+  group_index: number | null;
+  // session_group_id：1 人 N 堂連續預約的 key（單堂時可能為 null）
+  session_group_id: string | null;
+  session_index: number | null;
+  session_total: number | null;
+  // 由 EF 計算（cancellation_policy.min_hours_before）
   can_cancel: boolean;
+  // 部分 EF response 帶 customer_id（Phase 8 聚合用 fallback；my-bookings 不一定回傳，故設 optional）
+  customer_id?: string;
 }
 
 export function fetchMyBookings(token: string, merchantCode: string, status: 'upcoming' | 'past' = 'upcoming') {

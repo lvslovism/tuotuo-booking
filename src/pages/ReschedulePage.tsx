@@ -18,7 +18,8 @@ export function ReschedulePage() {
   const { merchant } = useMerchant();
   const { token } = useAuth();
 
-  const bookingId = searchParams.get('booking_id') || '';
+  // Phase 8: 同時接受 ?booking_id= 與 ?id=（舊路徑），避免 MemberPage 過渡期 callers 失效。
+  const bookingId = searchParams.get('booking_id') || searchParams.get('id') || '';
   const terminology = merchant?.terminology;
 
   const [step, setStep] = useState<Step>('loading');
