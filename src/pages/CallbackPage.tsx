@@ -3,7 +3,8 @@ import { useNavigate, useSearchParams } from 'react-router-dom';
 import { useMerchant } from '../hooks/useMerchant';
 import { useAuth } from '../hooks/useAuth';
 import { Loading } from '../components/ui/Loading';
-import { getBookingReturn } from '../lib/lineLogin';
+import { getBookingReturn, setBookingReturn, clearBookingReturn } from '../lib/lineLogin';
+import { createBooking } from '../api/booking-api';
 
 const API_BASE = import.meta.env.VITE_API_BASE;
 const LINE_LOGIN_STATE_KEY = 'line_login_state';
@@ -69,11 +70,61 @@ export function CallbackPage() {
           line_user_id: result.customer.line_user_id,
         }, 'line_login');
 
-        // Determine where to land. Priority:
-        //   1. wb_booking_return.redirect_path (explicit AuthGuard / GuestForm intent)
-        //   2. wb_booking_return present with booking state → BookingPage with ?restored=true
-        //   3. Default → MemberPage
+        // Phase 7 A3: confirm-401 recovery — if BookingPage tagged the return
+        // payload with resubmit=true and full state, re-submit create-booking
+        // here and skip BookingPage entirely on success.
         const returnPayload = getBookingReturn();
+        const sessionToken = result.session_token as string;
+
+        const hasResubmit = !!(
+          returnPayload?.resubmit
+          && returnPayload.serviceId
+          && returnPayload.sessionSlots
+          && returnPayload.sessionSlots.length > 0
+          && returnPayload.guestInfo
+        );
+
+        if (hasResubmit) {
+          try {
+            const completeSlots = returnPayload!.sessionSlots!.filter((s) => s.date && s.time);
+            const expected = returnPayload!.sessionCount ?? completeSlots.length;
+            if (completeSlots.length !== expected) {
+              throw new Error('SESSIONS_INCOMPLETE');
+            }
+            const guest = returnPayload!.guestInfo!;
+            const companion = returnPayload!.companionInfo;
+            const people = returnPayload!.people ?? 1;
+            const bookingResult = await createBooking(sessionToken, merchantCode, {
+              service_id: returnPayload!.serviceId!,
+              sessions: completeSlots,
+              people,
+              customer_name: guest.name,
+              customer_phone: guest.phone,
+              customer_gender: guest.gender || undefined,
+              ...(returnPayload!.staffId ? { resource_id: returnPayload!.staffId } : {}),
+              ...(people >= 2 && companion?.name
+                ? { companion_name: companion.name, companion_gender: companion.gender || undefined }
+                : {}),
+            });
+            clearBookingReturn();
+            navigate(`/s/${merchantCode}/success`, {
+              replace: true,
+              state: { bookingResult },
+            });
+            return;
+          } catch (resubmitErr) {
+            // Auto-resubmit failed — strip the resubmit flag, keep state, send the
+            // user back to BookingPage's confirm step so they can retry manually.
+            console.error('A3 auto-resubmit failed:', resubmitErr);
+            const keep = { ...returnPayload! };
+            delete keep.resubmit;
+            setBookingReturn(keep);
+            navigate(`/s/${merchantCode}?restored=true`, { replace: true });
+            return;
+          }
+        }
+
+        // Default: honour redirect_path / fall back to BookingPage restore or MemberPage.
         const hasReturn = !!returnPayload;
         const hasBookingState = !!(returnPayload?.serviceId && returnPayload?.date && returnPayload?.time);
         const target = (() => {

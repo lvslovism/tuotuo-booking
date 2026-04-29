@@ -5,6 +5,7 @@ import { useAuth } from '../hooks/useAuth';
 import { useBooking } from '../hooks/useBooking';
 import { verifyIdentity, createBooking, fetchResources, fetchServices } from '../api/booking-api';
 import { logFunnel } from '../lib/funnel';
+import { startLineLogin } from '../lib/lineLogin';
 import { Stepper } from '../components/booking/Stepper';
 import { ServiceSelector } from '../components/booking/ServiceSelector';
 import { PartySizeAndStaff } from '../components/booking/PartySizeAndStaff';
@@ -28,10 +29,18 @@ const BOOKING_RETURN_KEY = 'wb_booking_return';
 
 interface BookingReturnPayload {
   merchantCode?: string;
+  redirect_path?: string;
   serviceId?: string | null;
   staffId?: string | null;
   date?: string;
   time?: string;
+  // Phase 7 A2/A3 — full multi-session restore + auto-resubmit on confirm 401
+  sessionCount?: number;
+  sessionSlots?: SessionSlot[];
+  people?: number;
+  guestInfo?: GuestInfo;
+  companionInfo?: CompanionInfo;
+  resubmit?: boolean;
 }
 
 export function BookingPage() {
@@ -147,7 +156,16 @@ export function BookingPage() {
       setRestoring(false);
       return;
     }
-    if (!payload.serviceId || !payload.date || !payload.time) {
+    // Legacy single-session payload requires serviceId+date+time at top level.
+    // Phase 7 rich payload has sessionSlots[] + guestInfo instead.
+    const hasLegacyShape = !!(payload.serviceId && payload.date && payload.time);
+    const hasRichShape = !!(
+      payload.serviceId
+      && payload.sessionSlots
+      && payload.sessionSlots.length > 0
+      && payload.guestInfo
+    );
+    if (!hasLegacyShape && !hasRichShape) {
       setRestoring(false);
       return;
     }
@@ -158,15 +176,36 @@ export function BookingPage() {
         const svc = services.find((s) => s.id === payload.serviceId);
         if (!svc) return;
         const staff = payload.staffId ? resources.find((r) => r.id === payload.staffId) : null;
-        booking.restoreState({
-          service: svc,
-          staffId: staff?.id ?? null,
-          staffName: staff?.name ?? null,
-          sessionCount: 1,
-          currentSessionIndex: 0,
-          sessionSlots: [{ date: payload.date!, time: payload.time! }],
-          step: 'info',
-        });
+        // A2/A3: rich payload (multi-session, guest info, target step) for confirm-401 recovery.
+        const hasRichPayload = !!(
+          payload.sessionSlots
+          && payload.sessionSlots.length > 0
+          && payload.guestInfo
+        );
+        if (hasRichPayload) {
+          booking.restoreState({
+            service: svc,
+            staffId: staff?.id ?? null,
+            staffName: staff?.name ?? null,
+            sessionCount: payload.sessionCount ?? payload.sessionSlots!.length,
+            currentSessionIndex: 0,
+            sessionSlots: payload.sessionSlots!,
+            people: payload.people ?? 1,
+            guestInfo: payload.guestInfo!,
+            companionInfo: payload.companionInfo ?? { name: '', gender: '' },
+            step: 'confirm',
+          });
+        } else {
+          booking.restoreState({
+            service: svc,
+            staffId: staff?.id ?? null,
+            staffName: staff?.name ?? null,
+            sessionCount: 1,
+            currentSessionIndex: 0,
+            sessionSlots: [{ date: payload.date!, time: payload.time! }],
+            step: 'info',
+          });
+        }
       })
       .catch(() => { /* fall through to fresh flow */ })
       .finally(() => setRestoring(false));
@@ -241,6 +280,29 @@ export function BookingPage() {
       });
     } catch (err) {
       const msg = err instanceof Error ? err.message : String(err);
+      // Phase 7 A2: token expired mid-confirm → save full state and bounce to LINE Login.
+      // Callback will see resubmit=true and auto-create-booking; on failure the user
+      // returns to the confirm step with state restored.
+      if (msg === 'UNAUTHORIZED' && merchant?.line_login_channel_id) {
+        logFunnel('error', {
+          service_id: booking.service.id,
+          resource_id: booking.staffId ?? undefined,
+          failure_reason: 'unauthorized_at_confirm',
+        });
+        startLineLogin(merchant.line_login_channel_id, merchantCode, {
+          redirect_path: `/s/${merchantCode}`,
+          serviceId: booking.service.id,
+          staffId: booking.staffId,
+          sessionCount: booking.sessionCount,
+          sessionSlots: completeSlots,
+          people: booking.people,
+          guestInfo: booking.guestInfo,
+          companionInfo: booking.companionInfo,
+          resubmit: true,
+        });
+        // Suppress the BookingConfirm error banner — we're navigating away. Resolve quietly.
+        return;
+      }
       logFunnel('error', {
         service_id: booking.service?.id,
         resource_id: booking.staffId ?? undefined,
@@ -249,7 +311,7 @@ export function BookingPage() {
       });
       throw err;
     }
-  }, [booking, token, merchantCode, navigate, setAuth]);
+  }, [booking, token, merchantCode, navigate, setAuth, merchant?.line_login_channel_id]);
 
   return (
     <div className="space-y-4">
