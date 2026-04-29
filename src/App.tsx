@@ -1,5 +1,6 @@
 import { Routes, Route } from 'react-router-dom';
 import { MerchantLayout } from './components/layout/MerchantLayout';
+import { AuthGuard } from './components/auth/AuthGuard';
 import { BookingPage } from './pages/BookingPage';
 import { ServicesPage } from './pages/ServicesPage';
 import { MemberPage } from './pages/MemberPage';
@@ -21,9 +22,9 @@ export default function App() {
       <Route path="/" element={<LandingPage />} />
       <Route path="/verify-email" element={<VerifyEmailPage />} />
       <Route path="/s/:merchantCode" element={<MerchantLayout />}>
-        <Route index element={<BookingPage />} />
+        <Route index element={<AuthGuard><BookingPage /></AuthGuard>} />
         <Route path="services" element={<ServicesPage />} />
-        <Route path="member" element={<MemberPage />} />
+        <Route path="member" element={<AuthGuard><MemberPage /></AuthGuard>} />
         <Route path="success" element={<SuccessPage />} />
         <Route path="callback" element={<CallbackPage />} />
         <Route path="payment-result" element={<PaymentResultPage />} />

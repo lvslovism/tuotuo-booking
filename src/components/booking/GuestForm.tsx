@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from 'react';
 import { Button } from '../ui/Button';
 import { useAuth } from '../../hooks/useAuth';
+import { startLineLogin } from '../../lib/lineLogin';
 import type { GuestInfo, CompanionInfo, Merchant } from '../../types';
 
 interface BookingReturnState {
@@ -21,29 +22,6 @@ interface Props {
   initialCompanionInfo?: CompanionInfo;
   onSubmit: (info: GuestInfo, companion?: CompanionInfo) => void;
   onBack: () => void;
-}
-
-const LINE_LOGIN_STATE_KEY = 'line_login_state';
-const BOOKING_RETURN_KEY = 'wb_booking_return';
-
-function buildLineLoginUrl(channelId: string, merchantCode: string, state: string): string {
-  const redirectUri = `${window.location.origin}/s/${merchantCode}/callback`;
-  const params = new URLSearchParams({
-    response_type: 'code',
-    client_id: channelId,
-    redirect_uri: redirectUri,
-    state,
-    scope: 'profile openid',
-    bot_prompt: 'aggressive',
-  });
-  return `https://access.line.me/oauth2/v2.1/authorize?${params.toString()}`;
-}
-
-function randomState(): string {
-  if (typeof crypto !== 'undefined' && 'randomUUID' in crypto) {
-    return crypto.randomUUID();
-  }
-  return Math.random().toString(36).slice(2) + Date.now().toString(36);
 }
 
 export function GuestForm({
@@ -339,19 +317,10 @@ function FullAuthForm({
 
   const handleLineLogin = () => {
     if (!lineChannelId || !merchantCode) return;
-    try {
-      if (bookingReturnState) {
-        sessionStorage.setItem(
-          BOOKING_RETURN_KEY,
-          JSON.stringify({ merchantCode, ...bookingReturnState }),
-        );
-      }
-      const state = randomState();
-      sessionStorage.setItem(LINE_LOGIN_STATE_KEY, state);
-      window.location.href = buildLineLoginUrl(lineChannelId, merchantCode, state);
-    } catch {
-      // sessionStorage may fail in private mode — abort silently
-    }
+    startLineLogin(lineChannelId, merchantCode, {
+      redirect_path: `/s/${merchantCode}`,
+      ...(bookingReturnState ?? {}),
+    });
   };
 
   const validate = (): boolean => {

@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { Navigate } from 'react-router-dom';
+import { Navigate, useNavigate } from 'react-router-dom';
 import { useMerchant } from '../hooks/useMerchant';
 import { fetchServices } from '../api/booking-api';
 import { Loading } from '../components/ui/Loading';
@@ -7,6 +7,7 @@ import type { Service } from '../types';
 
 export function ServicesPage() {
   const { merchant, merchantCode } = useMerchant();
+  const navigate = useNavigate();
   const [services, setServices] = useState<Service[]>([]);
   const [loading, setLoading] = useState(true);
   const showServicesTab = merchant?.display_settings?.show_services_tab !== false;
@@ -22,6 +23,10 @@ export function ServicesPage() {
   if (!showServicesTab) return <Navigate to={`/s/${merchantCode}`} replace />;
 
   if (loading) return <Loading text="載入服務項目..." />;
+
+  // CTA: navigate to booking flow. AuthGuard on /s/:merchantCode handles
+  // unauthenticated users by bouncing to LINE Login.
+  const handleStartBooking = () => navigate(`/s/${merchantCode}`);
 
   return (
     <div className="space-y-4">
@@ -41,6 +46,25 @@ export function ServicesPage() {
             <p className="text-xs text-text-secondary">{s.duration_minutes} 分鐘</p>
           </div>
         ))
+      )}
+
+      {services.length > 0 && (
+        <div className="pt-2">
+          <button
+            type="button"
+            onClick={handleStartBooking}
+            className="w-full font-medium text-white transition-all hover:brightness-110"
+            style={{
+              backgroundColor: 'var(--t-accent, var(--t-primary))',
+              minHeight: '48px',
+              borderRadius: 'var(--t-btn-radius, 10px)',
+              padding: '14px 16px',
+              fontSize: '1.0625rem',
+            }}
+          >
+            立即{merchant?.terminology?.booking || '預約'}
+          </button>
+        </div>
       )}
     </div>
   );

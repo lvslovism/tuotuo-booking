@@ -3,10 +3,10 @@ import { useNavigate, useSearchParams } from 'react-router-dom';
 import { useMerchant } from '../hooks/useMerchant';
 import { useAuth } from '../hooks/useAuth';
 import { Loading } from '../components/ui/Loading';
+import { getBookingReturn } from '../lib/lineLogin';
 
 const API_BASE = import.meta.env.VITE_API_BASE;
 const LINE_LOGIN_STATE_KEY = 'line_login_state';
-const BOOKING_RETURN_KEY = 'wb_booking_return';
 
 export function CallbackPage() {
   const { merchantCode } = useMerchant();
@@ -69,15 +69,24 @@ export function CallbackPage() {
           line_user_id: result.customer.line_user_id,
         }, 'line_login');
 
-        // If a booking flow was mid-stream, return to booking page so it can restore.
-        let hasReturn = false;
-        try {
-          hasReturn = !!sessionStorage.getItem(BOOKING_RETURN_KEY);
-        } catch { /* ignore */ }
-        navigate(
-          hasReturn ? `/s/${merchantCode}?restored=true` : `/s/${merchantCode}/member`,
-          { replace: true },
-        );
+        // Determine where to land. Priority:
+        //   1. wb_booking_return.redirect_path (explicit AuthGuard / GuestForm intent)
+        //   2. wb_booking_return present with booking state → BookingPage with ?restored=true
+        //   3. Default → MemberPage
+        const returnPayload = getBookingReturn();
+        const hasReturn = !!returnPayload;
+        const hasBookingState = !!(returnPayload?.serviceId && returnPayload?.date && returnPayload?.time);
+        const target = (() => {
+          if (returnPayload?.redirect_path) {
+            const sep = returnPayload.redirect_path.includes('?') ? '&' : '?';
+            return hasBookingState
+              ? `${returnPayload.redirect_path}${sep}restored=true`
+              : returnPayload.redirect_path;
+          }
+          if (hasReturn) return `/s/${merchantCode}?restored=true`;
+          return `/s/${merchantCode}/member`;
+        })();
+        navigate(target, { replace: true });
       } catch (e) {
         console.error('verify-identity exception:', e);
         setError('LINE 登入失敗，請重試');

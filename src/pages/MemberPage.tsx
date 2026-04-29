@@ -9,15 +9,11 @@ import {
 } from '../api/booking-api';
 import { Loading } from '../components/ui/Loading';
 import { cn } from '../utils/cn';
-
-// ============================================================
-// LINE Login OAuth redirect helper
-// ============================================================
-function buildLineLoginUrl(channelId: string, merchantCode: string): string {
-  const redirectUri = `${window.location.origin}/s/${merchantCode}/callback`;
-  const state = Math.random().toString(36).slice(2);
-  return `https://access.line.me/oauth2/v2.1/authorize?response_type=code&client_id=${channelId}&redirect_uri=${encodeURIComponent(redirectUri)}&state=${state}&scope=profile%20openid`;
-}
+import {
+  startLineLogin,
+  clearBookingReturn,
+  clearLineLoginState,
+} from '../lib/lineLogin';
 
 // ============================================================
 // Lifecycle badge mapping
@@ -41,10 +37,8 @@ export function MemberPage() {
 
   const handleLogout = () => {
     if (!confirm('確定要登出嗎？')) return;
-    try {
-      sessionStorage.removeItem('wb_booking_return');
-      sessionStorage.removeItem('line_login_state');
-    } catch { /* ignore */ }
+    clearBookingReturn();
+    clearLineLoginState();
     clearAuth();
     navigate(`/s/${merchantCode}`, { replace: true });
   };
@@ -55,23 +49,10 @@ export function MemberPage() {
   const [error, setError] = useState('');
   const [cancellingId, setCancellingId] = useState<string | null>(null);
 
-  // ── Auto-redirect to LINE Login if not authenticated ──
+  // ── Fetch portal data (AuthGuard already gated authentication) ──
   useEffect(() => {
     if (!merchant) return; // wait for merchant data
-
-    if (!isAuthenticated) {
-      const channelId = merchant.line_login_channel_id;
-      if (channelId) {
-        // Auto-redirect to LINE Login
-        window.location.href = buildLineLoginUrl(channelId, merchantCode);
-      } else {
-        setLoading(false);
-        setError('此商家尚未設定 LINE 登入');
-      }
-      return;
-    }
-
-    // ── Authenticated: fetch portal data ──
+    if (!isAuthenticated) return; // AuthGuard handles redirect
     if (!token || !merchantCode) return;
 
     setLoading(true);
@@ -135,10 +116,9 @@ export function MemberPage() {
   };
 
   const handleRetryLogin = () => {
-    const channelId = merchant?.line_login_channel_id;
-    if (channelId) {
-      window.location.href = buildLineLoginUrl(channelId, merchantCode);
-    }
+    startLineLogin(merchant?.line_login_channel_id, merchantCode, {
+      redirect_path: `/s/${merchantCode}/member`,
+    });
   };
 
   // ── Loading ──
