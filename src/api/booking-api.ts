@@ -1,5 +1,6 @@
 import type { Merchant, Service, CalendarDay, SlotsResponse, Package, ResourcesResponse, SessionSlot } from '../types';
 import { SUPABASE_URL } from '../lib/db';
+export type { SessionSlot };
 
 const API_BASE = import.meta.env.VITE_API_BASE || `${SUPABASE_URL}/functions/v1/web-booking-api`;
 
@@ -35,18 +36,14 @@ export function fetchAvailableSlots(
   serviceId: string,
   people = 1,
   resourceId: string | null = null,
-  excludeSelfSlots?: SessionSlot[],
+  sessions = 1,
 ) {
   let url = `${API_BASE}?action=available-slots&m=${merchantCode}&date=${date}&service_id=${serviceId}`;
   if (people > 1) url += `&people=${people}`;
   if (resourceId) url += `&resource_id=${encodeURIComponent(resourceId)}`;
-  if (excludeSelfSlots && excludeSelfSlots.length) {
-    const pairs = excludeSelfSlots
-      .filter((s) => s.date && s.time)
-      .map((s) => `${s.date},${s.time}`)
-      .join(';');
-    if (pairs) url += `&exclude_self_slots=${encodeURIComponent(pairs)}`;
-  }
+  // Phase 7 B2: ask EF to return only starts where N back-to-back sessions are
+  // all available (continuous validation). Slot size = duration + buffer.
+  if (sessions > 1) url += `&sessions=${sessions}`;
   return apiFetch<SlotsResponse>(url);
 }
 

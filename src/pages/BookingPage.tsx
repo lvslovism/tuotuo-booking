@@ -183,12 +183,13 @@ export function BookingPage() {
           && payload.guestInfo
         );
         if (hasRichPayload) {
+          const firstSlot = payload.sessionSlots![0];
           booking.restoreState({
             service: svc,
             staffId: staff?.id ?? null,
             staffName: staff?.name ?? null,
             sessionCount: payload.sessionCount ?? payload.sessionSlots!.length,
-            currentSessionIndex: 0,
+            selectedDate: firstSlot.date,
             sessionSlots: payload.sessionSlots!,
             people: payload.people ?? 1,
             guestInfo: payload.guestInfo!,
@@ -201,7 +202,7 @@ export function BookingPage() {
             staffId: staff?.id ?? null,
             staffName: staff?.name ?? null,
             sessionCount: 1,
-            currentSessionIndex: 0,
+            selectedDate: payload.date!,
             sessionSlots: [{ date: payload.date!, time: payload.time! }],
             step: 'info',
           });
@@ -361,7 +362,7 @@ export function BookingPage() {
         />
       )}
 
-      {/* Step 3: Pick date */}
+      {/* Step 3: Pick start date (single — multi-session auto-fills from this) */}
       {booking.step === 'date' && booking.service && (
         <div>
           <div className="flex items-center justify-between mb-3">
@@ -369,7 +370,7 @@ export function BookingPage() {
               選擇日期
               {booking.sessionCount >= 2 && (
                 <span className="ml-2 text-sm" style={{ color: 'var(--t-sub)' }}>
-                  · 第 {booking.currentSessionIndex + 1} / {booking.sessionCount} 堂
+                  · 共 {booking.sessionCount} 堂連續
                 </span>
               )}
             </h2>
@@ -402,7 +403,6 @@ export function BookingPage() {
             people={booking.people}
             staffName={booking.staffName}
             sessionCount={booking.sessionCount}
-            currentSessionIndex={booking.currentSessionIndex}
           />
           <Calendar
             serviceId={booking.service.id}
@@ -413,15 +413,15 @@ export function BookingPage() {
         </div>
       )}
 
-      {/* Step 4: Pick time slot */}
+      {/* Step 4: Pick start time (multi-session: subsequent slots auto-fill at duration+buffer intervals) */}
       {booking.step === 'time' && booking.service && booking.currentDate && (
         <div>
           <div className="flex items-center justify-between mb-3">
             <h2 className="theme-title text-lg">
-              選擇時段
+              選擇起始時段
               {booking.sessionCount >= 2 && (
                 <span className="ml-2 text-sm" style={{ color: 'var(--t-sub)' }}>
-                  · 第 {booking.currentSessionIndex + 1} / {booking.sessionCount} 堂
+                  · 共 {booking.sessionCount} 堂連續
                 </span>
               )}
             </h2>
@@ -438,17 +438,13 @@ export function BookingPage() {
             people={booking.people}
             staffName={booking.staffName}
             sessionCount={booking.sessionCount}
-            currentSessionIndex={booking.currentSessionIndex}
           />
           <TimeSlotGrid
             serviceId={booking.service.id}
             date={booking.currentDate}
             people={booking.people}
             resourceId={booking.staffId}
-            excludeSelfSlots={booking.sessionSlots
-              .map((s, i) => ({ s, i }))
-              .filter(({ s, i }) => i !== booking.currentSessionIndex && s.date && s.time)
-              .map(({ s }) => s)}
+            sessions={booking.sessionCount}
             onSelect={handleSelectSlot}
           />
         </div>
@@ -497,13 +493,11 @@ function BookingSummaryCard({
   people,
   staffName,
   sessionCount,
-  currentSessionIndex,
 }: {
   service: Service;
   people: number;
   staffName: string | null;
   sessionCount?: number;
-  currentSessionIndex?: number;
 }) {
   return (
     <div
@@ -523,7 +517,7 @@ function BookingSummaryCard({
       )}
       {(sessionCount ?? 1) >= 2 && (
         <span className="ml-2" style={{ color: 'var(--t-primary)' }}>
-          · 第 {(currentSessionIndex ?? 0) + 1} / {sessionCount} 堂
+          · 共 {sessionCount} 堂
         </span>
       )}
       {people === 1 && staffName && (

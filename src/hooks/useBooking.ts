@@ -1,5 +1,6 @@
 import { useState, useCallback } from 'react';
 import { logFunnel } from '../lib/funnel';
+import { computeSessionSlots, getSlotMinutes } from '../utils/sessionSlots';
 import type {
   Service,
   TimeSlot,
@@ -14,8 +15,8 @@ interface BookingState {
   step: BookingStep;
   service: Service | null;
   sessionCount: number;             // 想訂幾堂（v1: 1 ~ maxSessions）
-  currentSessionIndex: number;      // 0-indexed; 當前在選第幾堂
-  sessionSlots: SessionSlot[];      // 已選的堂（length 隨選逐漸推進）
+  selectedDate: string;             // 起點日期（單一）
+  sessionSlots: SessionSlot[];      // 由 selectedDate + 起點時間 + sessionCount × slot_size 推算
   people: number;
   companionInfo: CompanionInfo;
   guestInfo: GuestInfo;
@@ -27,7 +28,7 @@ const initialState: BookingState = {
   step: 'service',
   service: null,
   sessionCount: 1,
-  currentSessionIndex: 0,
+  selectedDate: '',
   sessionSlots: [],
   people: 1,
   companionInfo: { name: '', gender: '' },
@@ -78,14 +79,13 @@ export function useBooking({ hasPartyStep }: UseBookingOptions) {
     setState((s) => {
       if (n === s.sessionCount) return s;
       logFunnel('select_session_count', { session_count: n });
-      // 改變堂數時，截斷或保留已選 slots
-      const trimmed = s.sessionSlots.slice(0, n);
-      return {
-        ...s,
-        sessionCount: n,
-        sessionSlots: trimmed,
-        currentSessionIndex: Math.min(s.currentSessionIndex, Math.max(0, n - 1)),
-      };
+      // 起點仍存在 → 重算 slots
+      const slotMinutes = s.service ? getSlotMinutes(s.service) : 0;
+      const startTime = s.sessionSlots[0]?.time ?? '';
+      const slots = (s.selectedDate && startTime && slotMinutes > 0)
+        ? computeSessionSlots(s.selectedDate, startTime, n, slotMinutes)
+        : [];
+      return { ...s, sessionCount: n, sessionSlots: slots };
     });
   }, []);
 
@@ -103,51 +103,42 @@ export function useBooking({ hasPartyStep }: UseBookingOptions) {
     setState((s) => ({
       ...s,
       step: 'date',
-      currentSessionIndex: 0,
-      sessionSlots: [],   // 重新選 staff/sessions 後清空
+      selectedDate: '',
+      sessionSlots: [],
     }));
   }, []);
 
   const selectDate = useCallback((date: string) => {
     setState((s) => {
       logFunnel('select_session_n_date_time', {
-        session_index: s.currentSessionIndex + 1,
+        session_index: 1,
         session_total: s.sessionCount,
         selected_date: date,
         selected_time: null,
       });
-      const next = [...s.sessionSlots];
-      next[s.currentSessionIndex] = { date, time: '' };
-      return { ...s, sessionSlots: next, step: 'time' };
+      // Selecting a new start date drops any previously chosen start time.
+      return { ...s, selectedDate: date, sessionSlots: [], step: 'time' };
     });
   }, []);
 
+  // Phase 7 B1: a single start time auto-fills all N sessions back-to-back at
+  // duration+buffer intervals. No more per-session date/time picking.
   const selectSlot = useCallback((slot: TimeSlot) => {
     setState((s) => {
-      const next = [...s.sessionSlots];
-      const cur = next[s.currentSessionIndex] || { date: '', time: '' };
-      next[s.currentSessionIndex] = { date: cur.date, time: slot.time };
+      if (!s.service || !s.selectedDate) return s;
+      const slotMinutes = getSlotMinutes(s.service);
+      const slots = computeSessionSlots(s.selectedDate, slot.time, s.sessionCount, slotMinutes);
       logFunnel('select_session_n_date_time', {
-        session_index: s.currentSessionIndex + 1,
+        session_index: 1,
         session_total: s.sessionCount,
-        selected_date: cur.date,
+        selected_date: s.selectedDate,
         selected_time: slot.time,
       });
-      // 還有下一堂 → 跳回 date
-      if (s.currentSessionIndex + 1 < s.sessionCount) {
-        return {
-          ...s,
-          sessionSlots: next,
-          currentSessionIndex: s.currentSessionIndex + 1,
-          step: 'date',
-        };
-      }
-      // 最後一堂選完 → 進 info
       logFunnel('select_time', {
-        selected_date: cur.date,
+        selected_date: s.selectedDate,
         selected_time: slot.time,
       });
-      return { ...s, sessionSlots: next, step: 'info' };
+      return { ...s, sessionSlots: slots, step: 'info' };
     });
   }, []);
 
@@ -171,19 +162,6 @@ export function useBooking({ hasPartyStep }: UseBookingOptions) {
 
   const goBack = useCallback(() => {
     setState((s) => {
-      // 多堂時：若不是第 1 堂的 date/time，回到上一堂繼續選
-      if (s.step === 'time' && s.sessionCount > 1) {
-        // 從 time 退到 date（同一堂）
-        return { ...s, step: 'date' };
-      }
-      if (s.step === 'date' && s.currentSessionIndex > 0) {
-        // 不是第一堂 → 退到上一堂的 time 修改
-        return {
-          ...s,
-          currentSessionIndex: s.currentSessionIndex - 1,
-          step: 'time',
-        };
-      }
       const steps = stepsFor(hasPartyStep);
       const idx = steps.indexOf(s.step);
       if (idx <= 0) return s;
@@ -191,13 +169,11 @@ export function useBooking({ hasPartyStep }: UseBookingOptions) {
     });
   }, [hasPartyStep]);
 
-  // Derived helpers — 給 BookingPage 的 Calendar/TimeSlotGrid 用
-  const currentSlot = state.sessionSlots[state.currentSessionIndex];
-  const currentDate = currentSlot?.date ?? '';
-
+  // Backwards-compat: BookingPage's date/time UI reads `currentDate` to drive
+  // Calendar/TimeSlotGrid. Map it onto the new single-start `selectedDate`.
   return {
     ...state,
-    currentDate,
+    currentDate: state.selectedDate,
     setStep, selectService, setPeople, setSessionCount, setStaff, confirmParty,
     selectDate, selectSlot, setGuestInfo, setCompanionInfo, reset,
     restoreState, goBack,

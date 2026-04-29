@@ -43,6 +43,17 @@ export function BookingConfirm({
 
   const isMultiSession = sessionCount >= 2;
 
+  // Defensive sort — Phase 7 B1: sessions are computed in order from a single
+  // start point, but a corrupted restore payload could arrive out-of-order.
+  // Always render earliest first.
+  const orderedSlots = isMultiSession
+    ? [...sessionSlots].sort((a, b) => {
+        const ka = `${a.date}T${a.time}`;
+        const kb = `${b.date}T${b.time}`;
+        return ka.localeCompare(kb);
+      })
+    : sessionSlots;
+
   const handleConfirm = async () => {
     setSubmitting(true);
     setError('');
@@ -64,15 +75,15 @@ export function BookingConfirm({
           <Row label={termProvider} value={providerDisplay} />
           {!isMultiSession && (
             <>
-              <Row label="日期" value={formatDateDisplay(sessionSlots[0]?.date || '')} />
-              <Row label="時間" value={sessionSlots[0]?.time || ''} />
+              <Row label="日期" value={formatDateDisplay(orderedSlots[0]?.date || '')} />
+              <Row label="時間" value={orderedSlots[0]?.time || ''} />
             </>
           )}
           {isMultiSession && (
             <div className="py-2.5 text-sm">
               <div className="mb-1.5" style={{ color: 'var(--t-sub)' }}>堂數時段</div>
               <ul className="space-y-1">
-                {sessionSlots.map((s, i) => (
+                {orderedSlots.map((s, i) => (
                   <li key={i} className="flex justify-between" style={{ color: 'var(--t-text)' }}>
                     <span>第 {i + 1} 堂</span>
                     <span className="font-medium">

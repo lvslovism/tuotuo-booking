@@ -5,18 +5,20 @@ import { useMerchant } from '../../hooks/useMerchant';
 import { useTheme } from '../../hooks/useTheme';
 import { formatDateDisplay } from '../../utils/date';
 import { Loading } from '../ui/Loading';
-import type { TimeSlot, SessionSlot } from '../../types';
+import type { TimeSlot } from '../../types';
 
 interface Props {
   serviceId: string;
   date: string;
   people?: number;
   resourceId?: string | null;
-  excludeSelfSlots?: SessionSlot[];
+  // Phase 7 B1: caller passes sessions=N so EF returns only starts where N
+  // back-to-back occurrences are all available (continuous validation).
+  sessions?: number;
   onSelect: (slot: TimeSlot) => void;
 }
 
-export function TimeSlotGrid({ serviceId, date, people = 1, resourceId = null, excludeSelfSlots, onSelect }: Props) {
+export function TimeSlotGrid({ serviceId, date, people = 1, resourceId = null, sessions = 1, onSelect }: Props) {
   const { merchantCode } = useMerchant();
   const { template } = useTheme();
   const navigate = useNavigate();
@@ -24,27 +26,15 @@ export function TimeSlotGrid({ serviceId, date, people = 1, resourceId = null, e
   const [loading, setLoading] = useState(true);
   const [selectedTime, setSelectedTime] = useState<string>('');
 
-  // 用穩定 key 避免 effect dep 用 array 引用觸發無限重撈
-  const excludeKey = (excludeSelfSlots || [])
-    .filter((s) => s.date && s.time)
-    .map((s) => `${s.date},${s.time}`)
-    .join(';');
-
   useEffect(() => {
     if (!merchantCode || !date || !serviceId) return;
     setLoading(true);
     setSelectedTime('');
-    const excludeArr = excludeKey
-      ? excludeKey.split(';').map((p) => {
-          const [d, t] = p.split(',');
-          return { date: d, time: t };
-        })
-      : undefined;
-    fetchAvailableSlots(merchantCode, date, serviceId, people, resourceId, excludeArr)
+    fetchAvailableSlots(merchantCode, date, serviceId, people, resourceId, sessions)
       .then((data) => setSlots(data.slots || []))
       .catch(() => setSlots([]))
       .finally(() => setLoading(false));
-  }, [merchantCode, date, serviceId, people, resourceId, excludeKey]);
+  }, [merchantCode, date, serviceId, people, resourceId, sessions]);
 
   if (!date) return null;
   if (loading) return <Loading text="載入可用時段..." />;
