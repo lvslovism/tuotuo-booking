@@ -5,7 +5,9 @@ import { useAuth } from '../hooks/useAuth';
 import {
   fetchCustomerPortal,
   cancelBooking,
+  updateProfile,
   type CustomerPortalResponse,
+  type UpdateProfilePayload,
 } from '../api/booking-api';
 import { Loading } from '../components/ui/Loading';
 import { cn } from '../utils/cn';
@@ -32,7 +34,7 @@ const LIFECYCLE_MAP: Record<string, { label: string; icon: string }> = {
 // ============================================================
 export function MemberPage() {
   const { merchantCode, merchant } = useMerchant();
-  const { isAuthenticated, token, clearAuth } = useAuth();
+  const { isAuthenticated, token, customer: authCustomer, mode, setAuth, clearAuth } = useAuth();
   const navigate = useNavigate();
 
   const handleLogout = () => {
@@ -121,6 +123,42 @@ export function MemberPage() {
     });
   };
 
+  // Phase 7 C2: save edited profile via update-profile EF action.
+  const handleSaveProfile = async (payload: UpdateProfilePayload): Promise<string | null> => {
+    if (!token) return '尚未登入';
+    try {
+      const res = await updateProfile(token, merchantCode, payload);
+      if (!res.success || res.error) {
+        return errorToZh(res.error || 'UPDATE_FAILED');
+      }
+      // Patch local auth + portal state from the RPC response (no extra round-trip).
+      if (res.customer && authCustomer) {
+        setAuth(token, {
+          ...authCustomer,
+          name: res.customer.real_name || authCustomer.name,
+          phone: res.customer.phone ?? authCustomer.phone,
+          gender: res.customer.gender ?? authCustomer.gender,
+        }, mode);
+      }
+      if (portal && res.customer) {
+        setPortal({
+          ...portal,
+          customer: {
+            ...portal.customer,
+            real_name: res.customer.real_name,
+            name: res.customer.real_name || portal.customer.name,
+            phone: res.customer.phone ?? portal.customer.phone,
+            gender: res.customer.gender,
+          },
+        });
+      }
+      return null;
+    } catch (e) {
+      const code = e instanceof Error ? e.message : '';
+      return errorToZh(code);
+    }
+  };
+
   // ── Loading ──
   if (loading) {
     return <Loading text="LINE 登入中..." />;
@@ -185,6 +223,18 @@ export function MemberPage() {
           <span>累計消費 <strong className="text-accent">NT${(customer.total_spent || 0).toLocaleString()}</strong></span>
         </div>
       </div>
+
+      {/* ── Profile (real_name / phone / gender) — Phase 7 C1 ── */}
+      <Section title="會員資料" icon="👤">
+        <ProfileEditCard
+          initial={{
+            real_name: customer.real_name || customer.name || '',
+            phone: customer.phone || '',
+            gender: (customer.gender as 'male' | 'female' | 'other' | null) || '',
+          }}
+          onSave={handleSaveProfile}
+        />
+      </Section>
 
       {/* ── Upcoming Bookings ── */}
       <Section title="即將到來的預約" icon="📅">
@@ -364,6 +414,251 @@ function EmptyState({ icon, text }: { icon: string; text: string }) {
       <p className="text-text-secondary text-sm">{text}</p>
     </div>
   );
+}
+
+// Phase 7 C1+C3: profile edit form with real_name / phone / gender + validation.
+function ProfileEditCard({
+  initial,
+  onSave,
+}: {
+  initial: { real_name: string; phone: string; gender: 'male' | 'female' | 'other' | '' };
+  onSave: (payload: UpdateProfilePayload) => Promise<string | null>;
+}) {
+  const [editing, setEditing] = useState(false);
+  const [realName, setRealName] = useState(initial.real_name);
+  const [phone, setPhone] = useState(initial.phone);
+  const [gender, setGender] = useState<'male' | 'female' | 'other' | ''>(initial.gender);
+  const [saving, setSaving] = useState(false);
+  const [errors, setErrors] = useState<Record<string, string>>({});
+  const [serverError, setServerError] = useState<string>('');
+
+  // Reset local edit state when initial changes (e.g. after save the parent re-renders).
+  useEffect(() => {
+    if (!editing) {
+      setRealName(initial.real_name);
+      setPhone(initial.phone);
+      setGender(initial.gender);
+    }
+  }, [initial.real_name, initial.phone, initial.gender, editing]);
+
+  const startEdit = () => {
+    setErrors({});
+    setServerError('');
+    setEditing(true);
+  };
+
+  const cancel = () => {
+    setRealName(initial.real_name);
+    setPhone(initial.phone);
+    setGender(initial.gender);
+    setErrors({});
+    setServerError('');
+    setEditing(false);
+  };
+
+  const validate = (): boolean => {
+    const errs: Record<string, string> = {};
+    const trimmed = realName.trim();
+    if (trimmed.length < 1) errs.real_name = '請輸入姓名';
+    else if (trimmed.length > 30) errs.real_name = '姓名不可超過 30 字';
+    if (phone.trim() && !/^09\d{8}$/.test(phone.trim())) {
+      errs.phone = '請輸入有效的手機號碼（09 開頭 10 碼）';
+    }
+    if (gender && !['male', 'female', 'other'].includes(gender)) {
+      errs.gender = '性別格式錯誤';
+    }
+    setErrors(errs);
+    return Object.keys(errs).length === 0;
+  };
+
+  const submit = async () => {
+    if (!validate()) return;
+    setSaving(true);
+    setServerError('');
+    const errMsg = await onSave({
+      real_name: realName.trim(),
+      phone: phone.trim() || undefined,
+      gender: gender || undefined,
+    });
+    setSaving(false);
+    if (errMsg) {
+      setServerError(errMsg);
+      return;
+    }
+    setEditing(false);
+  };
+
+  if (!editing) {
+    return (
+      <div className="bg-white rounded-xl shadow-sm p-4 space-y-2">
+        <ProfileRow label="姓名" value={initial.real_name || '尚未填寫'} />
+        <ProfileRow label="手機" value={initial.phone || '尚未填寫'} />
+        <ProfileRow
+          label="性別"
+          value={initial.gender === 'male' ? '男' : initial.gender === 'female' ? '女' : initial.gender === 'other' ? '其他' : '尚未填寫'}
+        />
+        <button
+          type="button"
+          onClick={startEdit}
+          className="w-full mt-2 text-sm font-medium transition-colors"
+          style={{
+            minHeight: '40px',
+            padding: '8px 16px',
+            backgroundColor: 'var(--t-primary-soft, #F3F4F6)',
+            color: 'var(--t-primary, #6B7280)',
+            border: '1px solid var(--t-line, #E5E7EB)',
+            borderRadius: 'var(--t-btn-radius, 10px)',
+          }}
+        >
+          編輯
+        </button>
+      </div>
+    );
+  }
+
+  return (
+    <div className="bg-white rounded-xl shadow-sm p-4 space-y-3">
+      <ProfileField label="姓名" error={errors.real_name}>
+        <input
+          type="text"
+          value={realName}
+          onChange={(e) => setRealName(e.target.value)}
+          placeholder="請輸入姓名"
+          maxLength={30}
+          className="theme-input"
+          style={errors.real_name ? { borderColor: '#E57373' } : undefined}
+        />
+      </ProfileField>
+      <ProfileField label="手機" error={errors.phone}>
+        <input
+          type="tel"
+          value={phone}
+          onChange={(e) => setPhone(e.target.value)}
+          placeholder="0912345678"
+          maxLength={10}
+          className="theme-input"
+          style={errors.phone ? { borderColor: '#E57373' } : undefined}
+        />
+      </ProfileField>
+      <ProfileField label="性別" error={errors.gender}>
+        <div className="flex gap-2">
+          {[
+            { value: 'male' as const, label: '男' },
+            { value: 'female' as const, label: '女' },
+            { value: 'other' as const, label: '其他' },
+          ].map((opt) => {
+            const active = gender === opt.value;
+            return (
+              <button
+                key={opt.value}
+                type="button"
+                onClick={() => setGender(active ? '' : opt.value)}
+                className="flex-1 py-2 text-sm font-medium transition-all"
+                style={{
+                  borderRadius: 'var(--t-btn-radius, 10px)',
+                  border: `1px solid ${active ? 'var(--t-primary, #2C7A7B)' : 'var(--t-line, #E5E7EB)'}`,
+                  background: active ? 'var(--t-primary-soft, #E6FFFA)' : 'transparent',
+                  color: active ? 'var(--t-primary, #2C7A7B)' : 'var(--t-sub, #6B7280)',
+                  minHeight: '40px',
+                }}
+              >
+                {opt.label}
+              </button>
+            );
+          })}
+        </div>
+      </ProfileField>
+
+      {serverError && (
+        <div className="rounded-lg p-2.5 text-sm text-center" style={{ background: '#FDEAEA', color: '#B03A3A' }}>
+          {serverError}
+        </div>
+      )}
+
+      <div className="flex gap-2 pt-1">
+        <button
+          type="button"
+          onClick={cancel}
+          disabled={saving}
+          className="flex-1 text-sm font-medium transition-colors disabled:opacity-50"
+          style={{
+            minHeight: '40px',
+            padding: '8px 16px',
+            backgroundColor: '#F3F4F6',
+            color: '#6B7280',
+            border: '1px solid #E5E7EB',
+            borderRadius: 'var(--t-btn-radius, 10px)',
+          }}
+        >
+          取消
+        </button>
+        <button
+          type="button"
+          onClick={submit}
+          disabled={saving}
+          className="flex-1 text-sm font-medium text-white transition-colors disabled:opacity-50"
+          style={{
+            minHeight: '40px',
+            padding: '8px 16px',
+            backgroundColor: 'var(--t-primary, #2C7A7B)',
+            borderRadius: 'var(--t-btn-radius, 10px)',
+          }}
+        >
+          {saving ? '儲存中...' : '儲存'}
+        </button>
+      </div>
+    </div>
+  );
+}
+
+function ProfileRow({ label, value }: { label: string; value: string }) {
+  return (
+    <div className="flex justify-between text-sm py-1">
+      <span className="text-gray-500">{label}</span>
+      <span className="font-medium text-gray-800">{value}</span>
+    </div>
+  );
+}
+
+function ProfileField({
+  label,
+  error,
+  children,
+}: {
+  label: string;
+  error?: string;
+  children: React.ReactNode;
+}) {
+  return (
+    <div>
+      <label className="block text-sm font-medium mb-1" style={{ color: 'var(--t-text, #1F2937)' }}>
+        {label}
+      </label>
+      {children}
+      {error && <p className="text-xs mt-1" style={{ color: '#E57373' }}>{error}</p>}
+    </div>
+  );
+}
+
+function errorToZh(code: string): string {
+  switch (code) {
+    case 'INVALID_PHONE_FORMAT':
+      return '請輸入有效的手機號碼（09 開頭 10 碼）';
+    case 'INVALID_GENDER':
+      return '性別格式錯誤';
+    case 'INVALID_REAL_NAME':
+      return '姓名長度需在 30 字以內';
+    case 'NO_LINE_USER':
+      return '此功能僅限 LINE 登入會員';
+    case 'CUSTOMER_NOT_FOUND':
+      return '找不到您的會員資料';
+    case 'LINE_USER_ID_REQUIRED':
+      return '尚未綁定 LINE 帳號';
+    case 'UNAUTHORIZED':
+      return '登入已過期，請重新登入';
+    default:
+      return '更新失敗，請稍後再試';
+  }
 }
 
 function PortalBookingCard({

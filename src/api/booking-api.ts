@@ -349,6 +349,11 @@ export interface PortalCustomer {
   tags: string[];
   is_new_customer: boolean;
   member_since: string;
+  // Phase 7 C1: surfaced for edit form so the "編輯" UI prefills real_name and
+  // gender. May be null/undefined for legacy records or when fn_customer_portal
+  // doesn't include them.
+  real_name?: string | null;
+  gender?: string | null;
 }
 
 export interface PortalBooking {
@@ -406,4 +411,32 @@ export function fetchCustomerPortal(token: string, merchantCode: string) {
     `${API_BASE}?action=customer-portal&m=${merchantCode}`,
     { headers: { Authorization: `Bearer ${token}` } },
   );
+}
+
+// === Update profile (Phase 7 C2) ===
+
+export interface UpdateProfilePayload {
+  real_name?: string;
+  phone?: string;
+  gender?: 'male' | 'female' | 'other' | '';
+}
+
+export interface UpdateProfileResponse {
+  success: boolean;
+  error?: string;
+  customer?: {
+    id: string;
+    real_name: string | null;
+    phone: string | null;
+    gender: string | null;
+    display_name: string | null;
+  };
+}
+
+export function updateProfile(token: string, merchantCode: string, data: UpdateProfilePayload) {
+  return apiFetch<UpdateProfileResponse>(`${API_BASE}?action=update-profile&m=${merchantCode}`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+    body: JSON.stringify(data),
+  });
 }
