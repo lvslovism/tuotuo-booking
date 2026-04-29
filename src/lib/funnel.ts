@@ -7,7 +7,9 @@ export type FunnelStep =
   | 'landing'
   | 'select_service'
   | 'select_resource'
+  | 'select_session_count'         // Phase 6: 客人選堂數
   | 'select_date'
+  | 'select_session_n_date_time'   // Phase 6: 多堂時逐堂選 date+time
   | 'select_time'
   | 'confirm'
   | 'success'
@@ -19,7 +21,9 @@ const STEP_INDEX: Record<FunnelStep, number | null> = {
   landing: 0,
   select_service: 1,
   select_resource: 2,
+  select_session_count: 2,           // 與 select_resource 同層（Step 2 內）
   select_date: 3,
+  select_session_n_date_time: 3,     // 與 select_date 同層（多堂逐堂）
   select_time: 4,
   confirm: 5,
   success: 6,
@@ -33,8 +37,11 @@ export interface FunnelExtras {
   service_id?: string;
   resource_id?: string;
   booking_id?: string;
-  selected_date?: string;       // YYYY-MM-DD
-  selected_time?: string;       // HH:MM:SS
+  selected_date?: string | null;    // YYYY-MM-DD
+  selected_time?: string | null;    // HH:MM[:SS]
+  session_count?: number;
+  session_index?: number;
+  session_total?: number;
   failure_reason?: string;
   failure_detail?: string;
   metadata?: Record<string, unknown>;

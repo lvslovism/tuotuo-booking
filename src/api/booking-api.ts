@@ -1,4 +1,4 @@
-import type { Merchant, Service, CalendarDay, SlotsResponse, Package, ResourcesResponse } from '../types';
+import type { Merchant, Service, CalendarDay, SlotsResponse, Package, ResourcesResponse, SessionSlot } from '../types';
 import { SUPABASE_URL } from '../lib/db';
 
 const API_BASE = import.meta.env.VITE_API_BASE || `${SUPABASE_URL}/functions/v1/web-booking-api`;
@@ -35,10 +35,18 @@ export function fetchAvailableSlots(
   serviceId: string,
   people = 1,
   resourceId: string | null = null,
+  excludeSelfSlots?: SessionSlot[],
 ) {
   let url = `${API_BASE}?action=available-slots&m=${merchantCode}&date=${date}&service_id=${serviceId}`;
   if (people > 1) url += `&people=${people}`;
   if (resourceId) url += `&resource_id=${encodeURIComponent(resourceId)}`;
+  if (excludeSelfSlots && excludeSelfSlots.length) {
+    const pairs = excludeSelfSlots
+      .filter((s) => s.date && s.time)
+      .map((s) => `${s.date},${s.time}`)
+      .join(';');
+    if (pairs) url += `&exclude_self_slots=${encodeURIComponent(pairs)}`;
+  }
   return apiFetch<SlotsResponse>(url);
 }
 
@@ -111,17 +119,25 @@ export interface GroupBookingItem {
   group_index: number;
 }
 
+export interface CreateBookingDiscountBreakdown {
+  original: number;
+  new_customer_discount: number;
+  new_customer_applied_sessions: number;
+  group: number;                      // per-session group discount
+  total_discount: number;
+}
+
 export interface CreateBookingResponse {
   group_id: string | null;
+  session_group_id?: string | null;
   people: number;
   sessions_per_person: number;
   total_sessions: number;
   start_time: string;
   end_time: string;
   price_per_session: number;
-  original_price_per_session: number;
-  discount_per_session: number;
   total_price: number;
+  discount_breakdown?: CreateBookingDiscountBreakdown;
   booking: {
     id: string;
     service_name: string;
@@ -137,9 +153,7 @@ export interface CreateBookingResponse {
 
 export interface CreateBookingPayload {
   service_id: string;
-  date: string;        // YYYY-MM-DD
-  time: string;        // HH:MM
-  sessions: number;
+  sessions: SessionSlot[];        // Phase 6: N 堂，每堂自己 date+time
   people: number;
   resource_id?: string | null;
   customer_name?: string;

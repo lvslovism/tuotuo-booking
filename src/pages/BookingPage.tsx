@@ -16,6 +16,7 @@ import { Loading } from '../components/ui/Loading';
 import type {
   Service,
   TimeSlot,
+  SessionSlot,
   GuestInfo,
   CompanionInfo,
   Resource,
@@ -67,9 +68,17 @@ export function BookingPage() {
       | GroupDiscount
       | undefined));
 
+  // Phase 6: 多堂預約（v1 上限 2 堂）— 取 min(service, group_booking) 邏輯
+  // 待 booking.service 確定後再用 service.max_sessions（在 PartySizeAndStaff 階段需要）
+  const merchantMaxSessions = groupBooking?.max_sessions ?? 1;
+
   // hasPartyStep: 有任何東西要在 Step 2 選 → 顯示 step
-  const hasPartyStep = staffMode !== 'hidden' || groupEnabled;
+  const hasPartyStep = staffMode !== 'hidden' || groupEnabled || merchantMaxSessions >= 2;
   const booking = useBooking({ hasPartyStep });
+
+  const serviceMaxSessions = booking.service?.max_sessions ?? 1;
+  const maxSessions = Math.min(serviceMaxSessions, merchantMaxSessions, 2);
+  const multiSessionEnabled = maxSessions >= 2;
 
   // Funnel: landing + abandoned tracking
   useEffect(() => {
@@ -79,7 +88,7 @@ export function BookingPage() {
 
   useEffect(() => {
     const handleBeforeUnload = () => {
-      if (booking.step === 'confirm' && booking.slot) return;
+      if (booking.step === 'confirm' && booking.sessionSlots.length > 0) return;
       logFunnel('abandoned', {
         failure_reason: 'user_closed',
         metadata: { at_step: booking.step },
@@ -87,7 +96,7 @@ export function BookingPage() {
     };
     window.addEventListener('beforeunload', handleBeforeUnload);
     return () => window.removeEventListener('beforeunload', handleBeforeUnload);
-  }, [booking.step, booking.slot]);
+  }, [booking.step, booking.sessionSlots.length]);
 
   // 載入師傅清單 + staff_selection_mode
   // ⚠️ 必須在 ServiceSelector 渲染前 resolve，否則單服務 auto-select 會讀到 stale mode='hidden' 跳過 staff 步驟
@@ -153,9 +162,9 @@ export function BookingPage() {
           service: svc,
           staffId: staff?.id ?? null,
           staffName: staff?.name ?? null,
-          date: payload.date!,
-          slot: { time: payload.time!, available: true, available_resources: 1 },
-          sessions: 1,
+          sessionCount: 1,
+          currentSessionIndex: 0,
+          sessionSlots: [{ date: payload.date!, time: payload.time! }],
           step: 'info',
         });
       })
@@ -172,8 +181,8 @@ export function BookingPage() {
     booking.selectDate(date);
   }, [booking.selectDate]);
 
-  const handleSelectSlot = useCallback((slot: TimeSlot, sessions: number) => {
-    booking.selectSlot(slot, sessions);
+  const handleSelectSlot = useCallback((slot: TimeSlot) => {
+    booking.selectSlot(slot);
   }, [booking.selectSlot]);
 
   const handleGuestSubmit = useCallback((info: GuestInfo, companion?: CompanionInfo) => {
@@ -184,7 +193,12 @@ export function BookingPage() {
   }, [booking.setGuestInfo, booking.setCompanionInfo]);
 
   const handleConfirm = useCallback(async () => {
-    if (!booking.service || !booking.slot) return;
+    if (!booking.service) return;
+    // 所有 N 堂都要選滿（每堂 date + time）
+    const completeSlots: SessionSlot[] = booking.sessionSlots.filter(
+      (s) => s.date && s.time,
+    );
+    if (completeSlots.length !== booking.sessionCount) return;
 
     try {
       let authToken = token;
@@ -205,9 +219,7 @@ export function BookingPage() {
 
       const result = await createBooking(authToken!, merchantCode, {
         service_id: booking.service.id,
-        date: booking.date,
-        time: booking.slot.time,
-        sessions: booking.sessions,
+        sessions: completeSlots,
         people: booking.people,
         customer_name: booking.guestInfo?.name,
         customer_phone: booking.guestInfo?.phone,
@@ -266,17 +278,21 @@ export function BookingPage() {
         <ServiceSelector onSelect={handleSelectService} />
       )}
 
-      {/* Step 2: Party size + staff */}
+      {/* Step 2: Party size + staff + (multi-)session */}
       {booking.step === 'party' && (
         <PartySizeAndStaff
           resources={activeResources}
           staffMode={staffMode}
           groupEnabled={groupEnabled}
           maxPeople={maxPeople}
+          multiSessionEnabled={multiSessionEnabled}
+          maxSessions={maxSessions}
+          sessionCount={booking.sessionCount}
           groupDiscount={groupDiscount}
           people={booking.people}
           staffId={booking.staffId}
           onChangePeople={booking.setPeople}
+          onChangeSessions={booking.setSessionCount}
           onChangeStaff={booking.setStaff}
           onConfirm={booking.confirmParty}
           onBack={booking.goBack}
@@ -287,7 +303,14 @@ export function BookingPage() {
       {booking.step === 'date' && booking.service && (
         <div>
           <div className="flex items-center justify-between mb-3">
-            <h2 className="theme-title text-lg">選擇日期</h2>
+            <h2 className="theme-title text-lg">
+              選擇日期
+              {booking.sessionCount >= 2 && (
+                <span className="ml-2 text-sm" style={{ color: 'var(--t-sub)' }}>
+                  · 第 {booking.currentSessionIndex + 1} / {booking.sessionCount} 堂
+                </span>
+              )}
+            </h2>
             <button
               onClick={booking.goBack}
               className="text-sm hover:underline"
@@ -316,10 +339,12 @@ export function BookingPage() {
             service={booking.service}
             people={booking.people}
             staffName={booking.staffName}
+            sessionCount={booking.sessionCount}
+            currentSessionIndex={booking.currentSessionIndex}
           />
           <Calendar
             serviceId={booking.service.id}
-            selectedDate={booking.date}
+            selectedDate={booking.currentDate}
             people={booking.people}
             onSelectDate={handleSelectDate}
           />
@@ -327,10 +352,17 @@ export function BookingPage() {
       )}
 
       {/* Step 4: Pick time slot */}
-      {booking.step === 'time' && booking.service && booking.date && (
+      {booking.step === 'time' && booking.service && booking.currentDate && (
         <div>
           <div className="flex items-center justify-between mb-3">
-            <h2 className="theme-title text-lg">選擇時段</h2>
+            <h2 className="theme-title text-lg">
+              選擇時段
+              {booking.sessionCount >= 2 && (
+                <span className="ml-2 text-sm" style={{ color: 'var(--t-sub)' }}>
+                  · 第 {booking.currentSessionIndex + 1} / {booking.sessionCount} 堂
+                </span>
+              )}
+            </h2>
             <button
               onClick={booking.goBack}
               className="text-sm hover:underline"
@@ -343,12 +375,18 @@ export function BookingPage() {
             service={booking.service}
             people={booking.people}
             staffName={booking.staffName}
+            sessionCount={booking.sessionCount}
+            currentSessionIndex={booking.currentSessionIndex}
           />
           <TimeSlotGrid
             serviceId={booking.service.id}
-            date={booking.date}
+            date={booking.currentDate}
             people={booking.people}
             resourceId={booking.staffId}
+            excludeSelfSlots={booking.sessionSlots
+              .map((s, i) => ({ s, i }))
+              .filter(({ s, i }) => i !== booking.currentSessionIndex && s.date && s.time)
+              .map(({ s }) => s)}
             onSelect={handleSelectSlot}
           />
         </div>
@@ -363,8 +401,9 @@ export function BookingPage() {
           bookingReturnState={{
             serviceId: booking.service?.id ?? null,
             staffId: booking.staffId,
-            date: booking.date,
-            time: booking.slot?.time,
+            // LINE Login 回流還原只保留第 1 堂（v1：多堂回流不支援，回到第 1 堂後重新繼續）
+            date: booking.sessionSlots[0]?.date ?? '',
+            time: booking.sessionSlots[0]?.time,
           }}
           initialGuestInfo={booking.guestInfo}
           initialCompanionInfo={booking.companionInfo}
@@ -374,12 +413,11 @@ export function BookingPage() {
       )}
 
       {/* Step 6: Confirm */}
-      {booking.step === 'confirm' && booking.service && booking.slot && (
+      {booking.step === 'confirm' && booking.service && booking.sessionSlots.length > 0 && (
         <BookingConfirm
           service={booking.service}
-          date={booking.date}
-          slot={booking.slot}
-          sessions={booking.sessions}
+          sessionSlots={booking.sessionSlots}
+          sessionCount={booking.sessionCount}
           people={booking.people}
           guestInfo={booking.guestInfo}
           companionInfo={booking.people >= 2 ? booking.companionInfo : undefined}
@@ -396,10 +434,14 @@ function BookingSummaryCard({
   service,
   people,
   staffName,
+  sessionCount,
+  currentSessionIndex,
 }: {
   service: Service;
   people: number;
   staffName: string | null;
+  sessionCount?: number;
+  currentSessionIndex?: number;
 }) {
   return (
     <div
@@ -415,6 +457,11 @@ function BookingSummaryCard({
       {people >= 2 && (
         <span className="ml-2" style={{ color: 'var(--t-primary)' }}>
           · {people} 人同行
+        </span>
+      )}
+      {(sessionCount ?? 1) >= 2 && (
+        <span className="ml-2" style={{ color: 'var(--t-primary)' }}>
+          · 第 {(currentSessionIndex ?? 0) + 1} / {sessionCount} 堂
         </span>
       )}
       {people === 1 && staffName && (

@@ -117,11 +117,11 @@ export default function SuccessPage() {
 
           {result && (
             <div className="pt-3 mt-3 space-y-2" style={{ borderTop: '1px solid var(--t-line)' }}>
-              {result.discount_per_session > 0 && (
+              {(result.discount_breakdown?.group ?? 0) > 0 && (
                 <div className="flex justify-between text-sm">
                   <span style={{ color: 'var(--t-success)' }}>同行優惠</span>
                   <span style={{ color: 'var(--t-success)' }}>
-                    -{result.total_sessions} 堂 × NT${result.discount_per_session?.toLocaleString()}
+                    -{result.total_sessions} 堂 × NT${result.discount_breakdown?.group?.toLocaleString()}
                   </span>
                 </div>
               )}

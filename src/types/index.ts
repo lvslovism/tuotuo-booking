@@ -210,6 +210,12 @@ export interface ResourcesResponse {
 
 export type BookingStep = 'service' | 'party' | 'date' | 'time' | 'info' | 'confirm';
 
+// Phase 6: 多堂預約 — 每堂自己的 date+time（v1 整組同 staff）
+export interface SessionSlot {
+  date: string;        // YYYY-MM-DD
+  time: string;        // HH:mm
+}
+
 export interface GuestInfo {
   name: string;
   phone: string;

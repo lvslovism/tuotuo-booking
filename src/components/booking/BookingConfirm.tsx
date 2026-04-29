@@ -2,13 +2,12 @@ import { useState } from 'react';
 import { useMerchant } from '../../hooks/useMerchant';
 import { Button } from '../ui/Button';
 import { formatDateDisplay } from '../../utils/date';
-import type { Service, TimeSlot, GuestInfo, CompanionInfo } from '../../types';
+import type { Service, SessionSlot, GuestInfo, CompanionInfo } from '../../types';
 
 interface Props {
   service: Service;
-  date: string;
-  slot: TimeSlot;
-  sessions: number;
+  sessionSlots: SessionSlot[];
+  sessionCount: number;
   people: number;
   guestInfo: GuestInfo;
   companionInfo?: CompanionInfo;
@@ -18,7 +17,7 @@ interface Props {
 }
 
 export function BookingConfirm({
-  service, date, slot, sessions, people, guestInfo, companionInfo, staffName, onConfirm, onBack,
+  service, sessionSlots, sessionCount, people, guestInfo, companionInfo, staffName, onConfirm, onBack,
 }: Props) {
   const { merchant } = useMerchant();
   const [submitting, setSubmitting] = useState(false);
@@ -34,13 +33,15 @@ export function BookingConfirm({
       : staffName
         ? staffName
         : `系統將為您安排最合適的${termProvider}`;
-  const totalSessions = people * sessions;
+  const totalSessions = people * sessionCount;
   const isGroup = totalSessions >= (groupDiscount?.min_people_or_sessions ?? 2);
   const discountPerSession = isGroup && groupDiscount?.enabled ? groupDiscount.discount_per_session : 0;
   const pricePerSession = service.price - discountPerSession;
   const totalOriginal = service.price * totalSessions;
   const totalDiscount = discountPerSession * totalSessions;
   const totalPrice = pricePerSession * totalSessions;
+
+  const isMultiSession = sessionCount >= 2;
 
   const handleConfirm = async () => {
     setSubmitting(true);
@@ -61,11 +62,30 @@ export function BookingConfirm({
         <div className="divide-y" style={{ borderColor: 'var(--t-line)' }}>
           <Row label={terminology?.service || '服務'} value={service.name} />
           <Row label={termProvider} value={providerDisplay} />
-          <Row label="日期" value={formatDateDisplay(date)} />
-          <Row label="時間" value={slot.time} />
-          <Row label="時長" value={`${service.duration_minutes} 分鐘`} />
+          {!isMultiSession && (
+            <>
+              <Row label="日期" value={formatDateDisplay(sessionSlots[0]?.date || '')} />
+              <Row label="時間" value={sessionSlots[0]?.time || ''} />
+            </>
+          )}
+          {isMultiSession && (
+            <div className="py-2.5 text-sm">
+              <div className="mb-1.5" style={{ color: 'var(--t-sub)' }}>堂數時段</div>
+              <ul className="space-y-1">
+                {sessionSlots.map((s, i) => (
+                  <li key={i} className="flex justify-between" style={{ color: 'var(--t-text)' }}>
+                    <span>第 {i + 1} 堂</span>
+                    <span className="font-medium">
+                      {formatDateDisplay(s.date)} {s.time}
+                    </span>
+                  </li>
+                ))}
+              </ul>
+            </div>
+          )}
+          <Row label="時長" value={`${service.duration_minutes} 分鐘 / 堂`} />
           {people > 1 && <Row label="人數" value={`${people} 人`} />}
-          {sessions > 1 && <Row label="堂數" value={`${sessions} 堂`} />}
+          {sessionCount > 1 && <Row label="堂數" value={`${sessionCount} 堂`} />}
           <Row label="姓名" value={guestInfo.name} />
           <Row label="手機" value={guestInfo.phone} />
           <Row label="性別" value={guestInfo.gender === 'male' ? '男' : '女'} />

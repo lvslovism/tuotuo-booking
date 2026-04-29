@@ -5,37 +5,46 @@ import { useMerchant } from '../../hooks/useMerchant';
 import { useTheme } from '../../hooks/useTheme';
 import { formatDateDisplay } from '../../utils/date';
 import { Loading } from '../ui/Loading';
-import type { TimeSlot } from '../../types';
+import type { TimeSlot, SessionSlot } from '../../types';
 
 interface Props {
   serviceId: string;
   date: string;
   people?: number;
   resourceId?: string | null;
-  onSelect: (slot: TimeSlot, sessions: number) => void;
+  excludeSelfSlots?: SessionSlot[];
+  onSelect: (slot: TimeSlot) => void;
 }
 
-export function TimeSlotGrid({ serviceId, date, people = 1, resourceId = null, onSelect }: Props) {
+export function TimeSlotGrid({ serviceId, date, people = 1, resourceId = null, excludeSelfSlots, onSelect }: Props) {
   const { merchantCode } = useMerchant();
   const { template } = useTheme();
   const navigate = useNavigate();
   const [slots, setSlots] = useState<TimeSlot[]>([]);
-  const [sessions, setSessions] = useState(1);
   const [loading, setLoading] = useState(true);
   const [selectedTime, setSelectedTime] = useState<string>('');
+
+  // 用穩定 key 避免 effect dep 用 array 引用觸發無限重撈
+  const excludeKey = (excludeSelfSlots || [])
+    .filter((s) => s.date && s.time)
+    .map((s) => `${s.date},${s.time}`)
+    .join(';');
 
   useEffect(() => {
     if (!merchantCode || !date || !serviceId) return;
     setLoading(true);
     setSelectedTime('');
-    fetchAvailableSlots(merchantCode, date, serviceId, people, resourceId)
-      .then((data) => {
-        setSlots(data.slots || []);
-        setSessions(data.sessions || 1);
-      })
+    const excludeArr = excludeKey
+      ? excludeKey.split(';').map((p) => {
+          const [d, t] = p.split(',');
+          return { date: d, time: t };
+        })
+      : undefined;
+    fetchAvailableSlots(merchantCode, date, serviceId, people, resourceId, excludeArr)
+      .then((data) => setSlots(data.slots || []))
       .catch(() => setSlots([]))
       .finally(() => setLoading(false));
-  }, [merchantCode, date, serviceId, people, resourceId]);
+  }, [merchantCode, date, serviceId, people, resourceId, excludeKey]);
 
   if (!date) return null;
   if (loading) return <Loading text="載入可用時段..." />;
@@ -48,7 +57,7 @@ export function TimeSlotGrid({ serviceId, date, people = 1, resourceId = null, o
 
   const handlePick = (slot: TimeSlot) => {
     setSelectedTime(slot.time);
-    onSelect(slot, sessions);
+    onSelect(slot);
   };
 
   return (

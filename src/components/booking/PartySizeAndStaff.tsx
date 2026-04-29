@@ -7,10 +7,14 @@ interface Props {
   staffMode: StaffSelectionMode;
   groupEnabled: boolean;
   maxPeople: number;
+  multiSessionEnabled: boolean;
+  maxSessions: number;
+  sessionCount: number;
   groupDiscount?: GroupDiscount;
   people: number;
   staffId: string | null;
   onChangePeople: (n: number) => void;
+  onChangeSessions: (n: number) => void;
   onChangeStaff: (resource: Resource | null) => void;
   onConfirm: () => void;
   onBack: () => void;
@@ -23,10 +27,14 @@ export function PartySizeAndStaff({
   staffMode,
   groupEnabled,
   maxPeople,
+  multiSessionEnabled,
+  maxSessions,
+  sessionCount,
   groupDiscount,
   people,
   staffId,
   onChangePeople,
+  onChangeSessions,
   onChangeStaff,
   onConfirm,
   onBack,
@@ -36,10 +44,12 @@ export function PartySizeAndStaff({
   const termBooking = merchant?.terminology?.booking || '預約';
 
   const showPartySize = groupEnabled && maxPeople >= 2;
+  const showSessionCount = multiSessionEnabled && maxSessions >= 2;
   const showStaffPicker = staffMode !== 'hidden' && people === 1;
   const allowAuto = staffMode === 'optional';
 
   const peopleOptions = Array.from({ length: maxPeople }, (_, i) => i + 1);
+  const sessionOptions = Array.from({ length: maxSessions }, (_, i) => i + 1);
 
   // 1 人 + required 模式 → 必須選師傅；其他 → 隨時可繼續（optional 預設 auto）
   const requireExplicitStaffPick = staffMode === 'required' && people === 1;
@@ -59,7 +69,13 @@ export function PartySizeAndStaff({
     <div className="space-y-4 theme-enter">
       <div className="flex items-center justify-between mb-1">
         <h2 className="theme-title text-lg">
-          {showPartySize ? `選擇${termBooking}人數與${termProvider}` : `選擇${termProvider}`}
+          {(() => {
+            const parts: string[] = [];
+            if (showPartySize) parts.push(`${termBooking}人數`);
+            if (showSessionCount) parts.push('堂數');
+            if (showStaffPicker || (!showPartySize && !showSessionCount)) parts.push(termProvider);
+            return `選擇${parts.join('與')}`;
+          })()}
         </h2>
         <button
           onClick={onBack}
@@ -104,6 +120,49 @@ export function PartySizeAndStaff({
                 💡 {groupDiscount.description}
               </p>
             )}
+        </div>
+      )}
+
+      {/* Session count (堂數) selector */}
+      {showSessionCount && (
+        <div className="theme-card p-4">
+          <h3 className="font-medium mb-3" style={{ color: 'var(--t-text)' }}>
+            堂數
+          </h3>
+          <div className="flex gap-2">
+            {sessionOptions.map((n) => (
+              <button
+                key={n}
+                type="button"
+                onClick={() => onChangeSessions(n)}
+                className="flex-1 py-2.5 rounded-lg text-sm transition-all"
+                style={{
+                  border: `1px solid ${sessionCount === n ? 'var(--t-primary)' : 'var(--t-line)'}`,
+                  background: sessionCount === n ? 'var(--t-primary-soft)' : 'transparent',
+                  color: sessionCount === n ? 'var(--t-primary)' : 'var(--t-sub)',
+                  fontWeight: sessionCount === n ? 600 : 500,
+                }}
+              >
+                {`${n} 堂`}
+              </button>
+            ))}
+          </div>
+          {sessionCount >= 2 && (
+            <p
+              className="mt-3 text-sm rounded-lg px-3 py-2"
+              style={{ background: 'var(--t-primary-soft)', color: 'var(--t-primary)' }}
+            >
+              💡 將分別為每堂選擇日期與時段（可同日上下午、不同天）
+            </p>
+          )}
+          {sessionCount >= 2 && groupDiscount?.enabled && people * sessionCount >= (groupDiscount.min_people_or_sessions ?? 2) && groupDiscount.description && (
+            <p
+              className="mt-2 text-sm rounded-lg px-3 py-2"
+              style={{ background: 'var(--t-primary-soft)', color: 'var(--t-primary)' }}
+            >
+              💡 {groupDiscount.description}
+            </p>
+          )}
         </div>
       )}
 
