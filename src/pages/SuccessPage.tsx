@@ -38,6 +38,7 @@ export default function SuccessPage() {
   };
 
   const terminology = merchant?.terminology;
+  const isChikang = merchantCode === 'chikang';
 
   return (
     <div
@@ -75,13 +76,19 @@ export default function SuccessPage() {
         className="theme-title mb-1"
         style={{ fontSize: template === 'zen' ? '1.5rem' : '1.6rem' }}
       >
-        {template === 'zen' ? `${terminology?.booking || '預約'}已確認` : `${terminology?.booking || '預約'}成功！🎉`}
+        {isChikang
+          ? '恭喜預約完成'
+          : template === 'zen'
+            ? `${terminology?.booking || '預約'}已確認`
+            : `${terminology?.booking || '預約'}成功！🎉`}
       </h1>
       <div className="theme-gold-divider mb-4" />
       <p className="mb-8 text-center" style={{ color: 'var(--t-sub)' }}>
-        {isGroup && bookings && bookings.length > 1
-          ? `您和同行者的${terminology?.booking || '預約'}已確認，請準時到場。`
-          : `${merchant?.display_name || '商家'} 已收到您的${terminology?.booking || '預約'}，請準時到場。`}
+        {isChikang
+          ? '小小提醒：如預約完成臨時需取消，請來電取消，感謝！'
+          : isGroup && bookings && bookings.length > 1
+            ? `您和同行者的${terminology?.booking || '預約'}已確認，請準時到場。`
+            : `${merchant?.display_name || '商家'} 已收到您的${terminology?.booking || '預約'}，請準時到場。`}
       </p>
 
       {isGroup && bookings && bookings.length > 1 ? (
