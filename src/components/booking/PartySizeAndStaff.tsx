@@ -13,6 +13,7 @@ interface Props {
   groupDiscount?: GroupDiscount;
   people: number;
   staffId: string | null;
+  serviceDurationMinutes?: number;
   onChangePeople: (n: number) => void;
   onChangeSessions: (n: number) => void;
   onChangeStaff: (resource: Resource | null) => void;
@@ -33,6 +34,7 @@ export function PartySizeAndStaff({
   groupDiscount,
   people,
   staffId,
+  serviceDurationMinutes,
   onChangePeople,
   onChangeSessions,
   onChangeStaff,
@@ -50,6 +52,10 @@ export function PartySizeAndStaff({
 
   const peopleOptions = Array.from({ length: maxPeople }, (_, i) => i + 1);
   const sessionOptions = Array.from({ length: maxSessions }, (_, i) => i + 1);
+  const hasDuration =
+    typeof serviceDurationMinutes === 'number' &&
+    Number.isFinite(serviceDurationMinutes) &&
+    serviceDurationMinutes > 0;
 
   // 1 人 + required 模式 → 必須選師傅；其他 → 隨時可繼續（optional 預設 auto）
   const requireExplicitStaffPick = staffMode === 'required' && people === 1;
@@ -135,7 +141,7 @@ export function PartySizeAndStaff({
                 key={n}
                 type="button"
                 onClick={() => onChangeSessions(n)}
-                className="flex-1 py-2.5 rounded-lg text-sm transition-all"
+                className="flex-1 py-2.5 rounded-lg text-sm transition-all flex flex-col items-center justify-center gap-0.5 leading-tight"
                 style={{
                   border: `1px solid ${sessionCount === n ? 'var(--t-primary)' : 'var(--t-line)'}`,
                   background: sessionCount === n ? 'var(--t-primary-soft)' : 'transparent',
@@ -143,7 +149,15 @@ export function PartySizeAndStaff({
                   fontWeight: sessionCount === n ? 600 : 500,
                 }}
               >
-                {`${n} 堂`}
+                <span>{`${n} 堂`}</span>
+                {hasDuration && (
+                  <span
+                    className="text-xs"
+                    style={{ color: 'var(--t-sub)', fontWeight: 400 }}
+                  >
+                    {n * (serviceDurationMinutes as number)} 分鐘
+                  </span>
+                )}
               </button>
             ))}
           </div>

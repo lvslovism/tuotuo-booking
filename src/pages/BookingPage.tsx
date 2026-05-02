@@ -354,6 +354,7 @@ export function BookingPage() {
           groupDiscount={groupDiscount}
           people={booking.people}
           staffId={booking.staffId}
+          serviceDurationMinutes={booking.service?.duration_minutes}
           onChangePeople={booking.setPeople}
           onChangeSessions={booking.setSessionCount}
           onChangeStaff={booking.setStaff}
