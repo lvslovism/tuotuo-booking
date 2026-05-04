@@ -89,7 +89,8 @@ export function useBooking({ hasPartyStep }: UseBookingOptions) {
     });
   }, []);
 
-  // resource=null 表示「不指定（自動安排）」— 僅 optional 模式或 2+人時允許
+  // 多堂強制同師傅：整組共用同一個 staffId（後端 create-booking 只接受單一 resource_id）。
+  // 「不指定（自動安排）」已移除；resource=null 路徑保留給 2+ 人系統自動分配。
   const setStaff = useCallback((resource: Resource | null) => {
     logFunnel('select_resource', { resource_id: resource?.id });
     setState((s) => ({

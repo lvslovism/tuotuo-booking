@@ -42,6 +42,8 @@ export function BookingConfirm({
   const totalPrice = pricePerSession * totalSessions;
 
   const isMultiSession = sessionCount >= 2;
+  // 折抵命名：1 人 N 堂 → 「連續時段優惠」；M 人同行 → 「同行優惠」
+  const discountLabel = people === 1 && isMultiSession ? '連續時段優惠' : '同行優惠';
 
   // Defensive sort — Phase 7 B1: sessions are computed in order from a single
   // start point, but a corrupted restore payload could arrive out-of-order.
@@ -118,7 +120,7 @@ export function BookingConfirm({
                 </span>
               </div>
               <div className="flex justify-between text-sm">
-                <span style={{ color: 'var(--t-sub)' }}>同行優惠</span>
+                <span style={{ color: 'var(--t-sub)' }}>{discountLabel}</span>
                 <span style={{ color: 'var(--t-success)' }}>
                   {totalSessions} 堂 × -NT${discountPerSession.toLocaleString()} = -NT${totalDiscount.toLocaleString()}
                 </span>

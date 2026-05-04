@@ -21,8 +21,6 @@ interface Props {
   onBack: () => void;
 }
 
-const AUTO_ID = '__auto__';
-
 export function PartySizeAndStaff({
   resources,
   staffMode,
@@ -48,7 +46,6 @@ export function PartySizeAndStaff({
   const showPartySize = groupEnabled && maxPeople >= 2;
   const showSessionCount = multiSessionEnabled && maxSessions >= 2;
   const showStaffPicker = staffMode !== 'hidden' && people === 1;
-  const allowAuto = staffMode === 'optional';
 
   const peopleOptions = Array.from({ length: maxPeople }, (_, i) => i + 1);
   const sessionOptions = Array.from({ length: maxSessions }, (_, i) => i + 1);
@@ -57,19 +54,10 @@ export function PartySizeAndStaff({
     Number.isFinite(serviceDurationMinutes) &&
     serviceDurationMinutes > 0;
 
-  // 1 人 + required 模式 → 必須選師傅；其他 → 隨時可繼續（optional 預設 auto）
-  const requireExplicitStaffPick = staffMode === 'required' && people === 1;
-  const canContinue = !requireExplicitStaffPick || staffId !== null;
+  // Auto-assign option removed — picker visible ⇒ explicit pick required.
+  const canContinue = !showStaffPicker || staffId !== null;
 
-  // 視覺選中：optional 模式 staffId=null 顯示「auto」；required 模式 staffId=null 不選
-  const visualSelectedId =
-    people >= 2
-      ? null
-      : staffId !== null
-        ? staffId
-        : allowAuto
-          ? AUTO_ID
-          : null;
+  const visualSelectedId = people >= 2 ? null : staffId;
 
   return (
     <div className="space-y-4 theme-enter">
@@ -166,15 +154,7 @@ export function PartySizeAndStaff({
               className="mt-3 text-sm rounded-lg px-3 py-2"
               style={{ background: 'var(--t-primary-soft)', color: 'var(--t-primary)' }}
             >
-              💡 將分別為每堂選擇日期與時段（可同日上下午、不同天）
-            </p>
-          )}
-          {sessionCount >= 2 && groupDiscount?.enabled && people * sessionCount >= (groupDiscount.min_people_or_sessions ?? 2) && groupDiscount.description && (
-            <p
-              className="mt-2 text-sm rounded-lg px-3 py-2"
-              style={{ background: 'var(--t-primary-soft)', color: 'var(--t-primary)' }}
-            >
-              💡 {groupDiscount.description}
+              💡 同一位{termProvider}、連續時段，每堂優惠 $100
             </p>
           )}
         </div>
@@ -189,36 +169,6 @@ export function PartySizeAndStaff({
             </h3>
           )}
           <div className="space-y-3">
-            {allowAuto && (
-              <button
-                onClick={() => onChangeStaff(null)}
-                className="theme-service-card block w-full text-left"
-                style={{
-                  minHeight: 64,
-                  borderColor: visualSelectedId === AUTO_ID ? 'var(--t-primary)' : undefined,
-                }}
-              >
-                <div className="flex items-center gap-3">
-                  <div
-                    className="w-10 h-10 rounded-full flex items-center justify-center text-lg"
-                    style={{ background: 'var(--t-primary-soft)', color: 'var(--t-primary)' }}
-                  >
-                    🔄
-                  </div>
-                  <div className="flex-1 min-w-0">
-                    <h4
-                      className="theme-title"
-                      style={{ fontSize: '1rem', color: 'var(--t-text)' }}
-                    >
-                      不指定（自動安排）
-                    </h4>
-                    <p className="text-sm" style={{ color: 'var(--t-sub)' }}>
-                      由系統安排最合適的{termProvider}
-                    </p>
-                  </div>
-                </div>
-              </button>
-            )}
             {resources.map((r) => (
               <button
                 key={r.id}
