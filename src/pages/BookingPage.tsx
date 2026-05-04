@@ -390,13 +390,18 @@ export function BookingPage() {
               style={{ background: 'var(--t-primary-soft)' }}
             >
               <p className="font-medium" style={{ color: 'var(--t-primary)' }}>
-                ⏰ 不接受當日預約
+                ✅️ 恕不接受當日線上表單預約
               </p>
               <p className="text-sm mt-1" style={{ color: 'var(--t-sub)' }}>
-                當日預約請來電{' '}
-                <a href={`tel:${merchant.phone}`} className="underline">
-                  {merchant.phone}
+                {/* TODO: owner_name "洪老師" hardcoded; read from merchant settings when generalizing */}
+                ✅️ 如要當日調理，請您來電詢問（
+                <a
+                  href={`tel:${merchant.phone.replace(/[^0-9]/g, '')}`}
+                  className="underline"
+                >
+                  {merchant.phone.replace(/[^0-9]/g, '')}
                 </a>
+                {' '}洪老師）
               </p>
             </div>
           )}
