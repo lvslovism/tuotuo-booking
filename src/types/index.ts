@@ -180,6 +180,7 @@ export interface Customer {
   gender?: string;
   line_user_id?: string | null;
   avatar_url?: string;
+  welcome_credit?: number;
 }
 
 export interface AuthState {

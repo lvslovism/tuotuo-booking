@@ -45,7 +45,7 @@ interface BookingReturnPayload {
 
 export function BookingPage() {
   const { merchant, merchantCode } = useMerchant();
-  const { token, setAuth } = useAuth();
+  const { token, setAuth, customer: authCustomer } = useAuth();
   const navigate = useNavigate();
   const [searchParams, setSearchParams] = useSearchParams();
   const [staffMode, setStaffMode] = useState<StaffSelectionMode>('hidden');
@@ -254,6 +254,7 @@ export function BookingPage() {
           id: authResult.customer.id,
           name: authResult.customer.name,
           phone: authResult.customer.phone,
+          welcome_credit: authResult.customer.welcome_credit ?? 0,
         }, 'guest');
       }
 
@@ -481,6 +482,7 @@ export function BookingPage() {
           guestInfo={booking.guestInfo}
           companionInfo={booking.people >= 2 ? booking.companionInfo : undefined}
           staffName={booking.staffName}
+          welcomeCredit={authCustomer?.welcome_credit ?? 0}
           onConfirm={handleConfirm}
           onBack={booking.goBack}
         />

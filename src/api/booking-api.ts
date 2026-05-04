@@ -85,6 +85,7 @@ export interface VerifyIdentityResponse {
     gender: string;
     line_user_id: string | null;
     total_bookings: number;
+    welcome_credit?: number;
   };
   is_new_customer: boolean;
   auth_mode: string;

@@ -12,12 +12,13 @@ interface Props {
   guestInfo: GuestInfo;
   companionInfo?: CompanionInfo;
   staffName?: string | null;
+  welcomeCredit?: number;
   onConfirm: () => Promise<void>;
   onBack: () => void;
 }
 
 export function BookingConfirm({
-  service, sessionSlots, sessionCount, people, guestInfo, companionInfo, staffName, onConfirm, onBack,
+  service, sessionSlots, sessionCount, people, guestInfo, companionInfo, staffName, welcomeCredit = 0, onConfirm, onBack,
 }: Props) {
   const { merchant } = useMerchant();
   const [submitting, setSubmitting] = useState(false);
@@ -33,17 +34,19 @@ export function BookingConfirm({
       : staffName
         ? staffName
         : `系統將為您安排最合適的${termProvider}`;
+  const isMultiSession = sessionCount >= 2;
+  const minSessionsForDiscount = groupDiscount?.min_people_or_sessions ?? 2;
+  const hasSessionDiscount =
+    isMultiSession && (groupDiscount?.enabled ?? false) && sessionCount >= minSessionsForDiscount;
+  const discountPerSession = hasSessionDiscount ? groupDiscount!.discount_per_session : 0;
   const totalSessions = people * sessionCount;
-  const isGroup = totalSessions >= (groupDiscount?.min_people_or_sessions ?? 2);
-  const discountPerSession = isGroup && groupDiscount?.enabled ? groupDiscount.discount_per_session : 0;
   const pricePerSession = service.price - discountPerSession;
   const totalOriginal = service.price * totalSessions;
   const totalDiscount = discountPerSession * totalSessions;
-  const totalPrice = pricePerSession * totalSessions;
-
-  const isMultiSession = sessionCount >= 2;
-  // 折抵命名：1 人 N 堂 → 「連續時段優惠」；M 人同行 → 「同行優惠」
-  const discountLabel = people === 1 && isMultiSession ? '連續時段優惠' : '同行優惠';
+  const subtotalAfterGroupDiscount = pricePerSession * totalSessions;
+  const welcomeCreditApplied = Math.max(0, Math.min(welcomeCredit, subtotalAfterGroupDiscount));
+  const totalPrice = Math.max(0, subtotalAfterGroupDiscount - welcomeCreditApplied);
+  const showBreakdown = hasSessionDiscount || welcomeCreditApplied > 0;
 
   // Defensive sort — Phase 7 B1: sessions are computed in order from a single
   // start point, but a corrupted restore payload could arrive out-of-order.
@@ -111,7 +114,7 @@ export function BookingConfirm({
         </div>
 
         <div className="pt-3 space-y-2" style={{ borderTop: '1px solid var(--t-line)' }}>
-          {isGroup && discountPerSession > 0 ? (
+          {showBreakdown ? (
             <>
               <div className="flex justify-between text-sm">
                 <span style={{ color: 'var(--t-sub)' }}>標準價</span>
@@ -119,12 +122,22 @@ export function BookingConfirm({
                   {totalSessions} 堂 × NT${service.price.toLocaleString()} = NT${totalOriginal.toLocaleString()}
                 </span>
               </div>
-              <div className="flex justify-between text-sm">
-                <span style={{ color: 'var(--t-sub)' }}>{discountLabel}</span>
-                <span style={{ color: 'var(--t-success)' }}>
-                  {totalSessions} 堂 × -NT${discountPerSession.toLocaleString()} = -NT${totalDiscount.toLocaleString()}
-                </span>
-              </div>
+              {hasSessionDiscount && (
+                <div className="flex justify-between text-sm">
+                  <span style={{ color: 'var(--t-sub)' }}>連續時段優惠</span>
+                  <span style={{ color: 'var(--t-success)' }}>
+                    {totalSessions} 堂 × -NT${discountPerSession.toLocaleString()} = -NT${totalDiscount.toLocaleString()}
+                  </span>
+                </div>
+              )}
+              {welcomeCreditApplied > 0 && (
+                <div className="flex justify-between text-sm">
+                  <span style={{ color: 'var(--t-sub)' }}>新客禮金</span>
+                  <span style={{ color: 'var(--t-success)' }}>
+                    -NT${welcomeCreditApplied.toLocaleString()}
+                  </span>
+                </div>
+              )}
               <div className="pt-2 flex justify-between items-center" style={{ borderTop: '1px dashed var(--t-line)' }}>
                 <span className="font-medium" style={{ color: 'var(--t-text)' }}>應付總額</span>
                 <span className="theme-price" style={{ fontSize: '1.4rem' }}>

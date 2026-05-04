@@ -68,6 +68,7 @@ export function CallbackPage() {
           phone: result.customer.phone,
           gender: result.customer.gender,
           line_user_id: result.customer.line_user_id,
+          welcome_credit: result.customer.welcome_credit ?? 0,
         }, 'line_login');
 
         // Phase 7 A3: confirm-401 recovery — if BookingPage tagged the return
